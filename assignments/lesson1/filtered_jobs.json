@@ -1,0 +1,250 @@
+[
+  {
+    "name": "Albert",
+    "surname": "Skiba",
+    "gender": "M",
+    "birthDate": "1991-03-21 00:00:00",
+    "birthplace": "Grudziądz",
+    "id": 316
+  },
+  {
+    "name": "Cezary",
+    "surname": "Walczak",
+    "gender": "M",
+    "birthDate": "1989-10-25 00:00:00",
+    "birthplace": "Grudziądz",
+    "id": 1383
+  },
+  {
+    "name": "Cezary",
+    "surname": "Żurek",
+    "gender": "M",
+    "birthDate": "1987-08-07 00:00:00",
+    "birthplace": "Grudziądz",
+    "id": 1448
+  },
+  {
+    "name": "Damian",
+    "surname": "Kruk",
+    "gender": "M",
+    "birthDate": "1998-11-25 00:00:00",
+    "birthplace": "Grudziądz",
+    "id": 1641
+  },
+  {
+    "name": "Dawid",
+    "surname": "Sokołowski",
+    "gender": "M",
+    "birthDate": "1997-11-03 00:00:00",
+    "birthplace": "Grudziądz",
+    "id": 1964
+  },
+  {
+    "name": "Edward",
+    "surname": "Wiśniewski",
+    "gender": "M",
+    "birthDate": "1988-08-21 00:00:00",
+    "birthplace": "Grudziądz",
+    "id": 2131
+  },
+  {
+    "name": "Eryk",
+    "surname": "Mazurek",
+    "gender": "M",
+    "birthDate": "1995-11-03 00:00:00",
+    "birthplace": "Grudziądz",
+    "id": 2417
+  },
+  {
+    "name": "Grzegorz",
+    "surname": "Cieślak",
+    "gender": "M",
+    "birthDate": "1995-02-06 00:00:00",
+    "birthplace": "Grudziądz",
+    "id": 3109
+  },
+  {
+    "name": "Jacek",
+    "surname": "Nowak",
+    "gender": "M",
+    "birthDate": "1991-11-23 00:00:00",
+    "birthplace": "Grudziądz",
+    "id": 3698
+  },
+  {
+    "name": "Jan",
+    "surname": "Jasiński",
+    "gender": "M",
+    "birthDate": "1994-11-05 00:00:00",
+    "birthplace": "Grudziądz",
+    "id": 3972
+  },
+  {
+    "name": "Klaudiusz",
+    "surname": "Walczak",
+    "gender": "M",
+    "birthDate": "1990-08-17 00:00:00",
+    "birthplace": "Grudziądz",
+    "id": 5079
+  },
+  {
+    "name": "Oskar",
+    "surname": "Sieradzki",
+    "gender": "M",
+    "birthDate": "1993-12-18 00:00:00",
+    "birthplace": "Grudziądz",
+    "id": 6577
+  },
+  {
+    "name": "Oskar",
+    "surname": "Tomczyk",
+    "gender": "M",
+    "birthDate": "1990-02-24 00:00:00",
+    "birthplace": "Grudziądz",
+    "id": 6591
+  },
+  {
+    "name": "Sławomir",
+    "surname": "Mazur",
+    "gender": "M",
+    "birthDate": "1992-08-11 00:00:00",
+    "birthplace": "Grudziądz",
+    "id": 7742
+  },
+  {
+    "name": "Stanisław",
+    "surname": "Kubiak",
+    "gender": "M",
+    "birthDate": "1993-10-03 00:00:00",
+    "birthplace": "Grudziądz",
+    "id": 7907
+  },
+  {
+    "name": "Stefan",
+    "surname": "Król",
+    "gender": "M",
+    "birthDate": "1998-03-01 00:00:00",
+    "birthplace": "Grudziądz",
+    "id": 7976
+  },
+  {
+    "name": "Szymon",
+    "surname": "Woźniak",
+    "gender": "M",
+    "birthDate": "1989-07-04 00:00:00",
+    "birthplace": "Grudziądz",
+    "id": 8074
+  },
+  {
+    "name": "Szymon",
+    "surname": "Michalski",
+    "gender": "M",
+    "birthDate": "1994-03-04 00:00:00",
+    "birthplace": "Grudziądz",
+    "id": 8087
+  },
+  {
+    "name": "Wojciech",
+    "surname": "Kruk",
+    "gender": "M",
+    "birthDate": "1986-05-11 00:00:00",
+    "birthplace": "Grudziądz",
+    "id": 8921
+  },
+  {
+    "name": "Wojciech",
+    "surname": "Bielik",
+    "gender": "M",
+    "birthDate": "1986-06-24 00:00:00",
+    "birthplace": "Grudziądz",
+    "id": 8953
+  },
+  {
+    "name": "Zdzisław",
+    "surname": "Krawczyk",
+    "gender": "M",
+    "birthDate": "1994-06-27 00:00:00",
+    "birthplace": "Grudziądz",
+    "id": 9089
+  },
+  {
+    "name": "Alan",
+    "surname": "Wieczorek",
+    "gender": "M",
+    "birthDate": "1986-09-12 00:00:00",
+    "birthplace": "Grudziądz",
+    "id": 9433
+  },
+  {
+    "name": "Kewin",
+    "surname": "Walczak",
+    "gender": "M",
+    "birthDate": "1995-05-31 00:00:00",
+    "birthplace": "Grudziądz",
+    "id": 9671
+  },
+  {
+    "name": "Natan",
+    "surname": "Czarnecki",
+    "gender": "M",
+    "birthDate": "1992-04-02 00:00:00",
+    "birthplace": "Grudziądz",
+    "id": 9914
+  },
+  {
+    "name": "Radosław",
+    "surname": "Kaczor",
+    "gender": "M",
+    "birthDate": "1994-12-30 00:00:00",
+    "birthplace": "Grudziądz",
+    "id": 10958
+  },
+  {
+    "name": "Wacław",
+    "surname": "Jasiński",
+    "gender": "M",
+    "birthDate": "1986-03-01 00:00:00",
+    "birthplace": "Grudziądz",
+    "id": 11140
+  },
+  {
+    "name": "Maksymilian",
+    "surname": "Pawlak",
+    "gender": "M",
+    "birthDate": "1999-12-15 00:00:00",
+    "birthplace": "Grudziądz",
+    "id": 11461
+  },
+  {
+    "name": "Nikodem",
+    "surname": "Sokołowski",
+    "gender": "M",
+    "birthDate": "1996-11-05 00:00:00",
+    "birthplace": "Grudziądz",
+    "id": 11596
+  },
+  {
+    "name": "Remigiusz",
+    "surname": "Kurek",
+    "gender": "M",
+    "birthDate": "1999-04-15 00:00:00",
+    "birthplace": "Grudziądz",
+    "id": 11718
+  },
+  {
+    "name": "Tymoteusz",
+    "surname": "Żurek",
+    "gender": "M",
+    "birthDate": "1986-12-07 00:00:00",
+    "birthplace": "Grudziądz",
+    "id": 11976
+  },
+  {
+    "name": "Władysław",
+    "surname": "Wójcik",
+    "gender": "M",
+    "birthDate": "1990-12-04 00:00:00",
+    "birthplace": "Grudziądz",
+    "id": 11988
+  }
+]

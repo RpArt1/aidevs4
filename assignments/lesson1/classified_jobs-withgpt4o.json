@@ -1,0 +1,445 @@
+[
+  {
+    "id": "22",
+    "tags": [
+      "edukacja",
+      "praca z ludźmi"
+    ]
+  },
+  {
+    "id": "235",
+    "tags": [
+      "praca z pojazdami",
+      "praca fizyczna"
+    ]
+  },
+  {
+    "id": "264",
+    "tags": [
+      "edukacja"
+    ]
+  },
+  {
+    "id": "316",
+    "tags": [
+      "edukacja"
+    ]
+  },
+  {
+    "id": "581",
+    "tags": [
+      "praca z ludźmi"
+    ]
+  },
+  {
+    "id": "613",
+    "tags": [
+      "praca z ludźmi"
+    ]
+  },
+  {
+    "id": "882",
+    "tags": []
+  },
+  {
+    "id": "892",
+    "tags": [
+      "edukacja",
+      "praca z ludźmi"
+    ]
+  },
+  {
+    "id": "911",
+    "tags": [
+      "praca fizyczna"
+    ]
+  },
+  {
+    "id": "1200",
+    "tags": [
+      "edukacja"
+    ]
+  },
+  {
+    "id": "1272",
+    "tags": [
+      "medycyna"
+    ]
+  },
+  {
+    "id": "1383",
+    "tags": [
+      "praca fizyczna"
+    ]
+  },
+  {
+    "id": "1406",
+    "tags": [
+      "praca z ludźmi"
+    ]
+  },
+  {
+    "id": "1431",
+    "tags": [
+      "medycyna"
+    ]
+  },
+  {
+    "id": "1448",
+    "tags": [
+      "transport"
+    ]
+  },
+  {
+    "id": "1632",
+    "tags": []
+  },
+  {
+    "id": "1641",
+    "tags": []
+  },
+  {
+    "id": "1702",
+    "tags": [
+      "edukacja",
+      "praca z ludźmi"
+    ]
+  },
+  {
+    "id": "1964",
+    "tags": [
+      "IT"
+    ]
+  },
+  {
+    "id": "2131",
+    "tags": [
+      "praca fizyczna"
+    ]
+  },
+  {
+    "id": "2324",
+    "tags": []
+  },
+  {
+    "id": "2398",
+    "tags": [
+      "transport"
+    ]
+  },
+  {
+    "id": "2417",
+    "tags": [
+      "IT"
+    ]
+  },
+  {
+    "id": "2801",
+    "tags": [
+      "praca z ludźmi"
+    ]
+  },
+  {
+    "id": "3109",
+    "tags": []
+  },
+  {
+    "id": "3335",
+    "tags": [
+      "IT"
+    ]
+  },
+  {
+    "id": "3698",
+    "tags": [
+      "transport"
+    ]
+  },
+  {
+    "id": "3751",
+    "tags": [
+      "praca fizyczna"
+    ]
+  },
+  {
+    "id": "3906",
+    "tags": [
+      "IT"
+    ]
+  },
+  {
+    "id": "3972",
+    "tags": []
+  },
+  {
+    "id": "3981",
+    "tags": [
+      "IT"
+    ]
+  },
+  {
+    "id": "4023",
+    "tags": [
+      "praca fizyczna"
+    ]
+  },
+  {
+    "id": "4026",
+    "tags": [
+      "edukacja"
+    ]
+  },
+  {
+    "id": "4392",
+    "tags": []
+  },
+  {
+    "id": "4569",
+    "tags": []
+  },
+  {
+    "id": "4678",
+    "tags": [
+      "praca z ludźmi"
+    ]
+  },
+  {
+    "id": "4829",
+    "tags": []
+  },
+  {
+    "id": "5079",
+    "tags": [
+      "medycyna"
+    ]
+  },
+  {
+    "id": "5952",
+    "tags": [
+      "praca fizyczna"
+    ]
+  },
+  {
+    "id": "6004",
+    "tags": [
+      "praca z ludźmi"
+    ]
+  },
+  {
+    "id": "6007",
+    "tags": []
+  },
+  {
+    "id": "6150",
+    "tags": []
+  },
+  {
+    "id": "6577",
+    "tags": [
+      "transport"
+    ]
+  },
+  {
+    "id": "6591",
+    "tags": [
+      "edukacja"
+    ]
+  },
+  {
+    "id": "6656",
+    "tags": [
+      "medycyna"
+    ]
+  },
+  {
+    "id": "6724",
+    "tags": []
+  },
+  {
+    "id": "7073",
+    "tags": [
+      "IT"
+    ]
+  },
+  {
+    "id": "7517",
+    "tags": [
+      "medycyna"
+    ]
+  },
+  {
+    "id": "7524",
+    "tags": []
+  },
+  {
+    "id": "7742",
+    "tags": []
+  },
+  {
+    "id": "7907",
+    "tags": [
+      "IT"
+    ]
+  },
+  {
+    "id": "7976",
+    "tags": []
+  },
+  {
+    "id": "8046",
+    "tags": [
+      "transport"
+    ]
+  },
+  {
+    "id": "8074",
+    "tags": [
+      "medycyna"
+    ]
+  },
+  {
+    "id": "8087",
+    "tags": [
+      "medycyna"
+    ]
+  },
+  {
+    "id": "8307",
+    "tags": [
+      "praca z ludźmi"
+    ]
+  },
+  {
+    "id": "8361",
+    "tags": []
+  },
+  {
+    "id": "8423",
+    "tags": [
+      "praca z ludźmi"
+    ]
+  },
+  {
+    "id": "8874",
+    "tags": []
+  },
+  {
+    "id": "8921",
+    "tags": [
+      "praca z ludźmi"
+    ]
+  },
+  {
+    "id": "8953",
+    "tags": [
+      "transport"
+    ]
+  },
+  {
+    "id": "9089",
+    "tags": [
+      "edukacja",
+      "praca z ludźmi"
+    ]
+  },
+  {
+    "id": "9209",
+    "tags": []
+  },
+  {
+    "id": "9433",
+    "tags": [
+      "IT"
+    ]
+  },
+  {
+    "id": "9671",
+    "tags": [
+      "medycyna"
+    ]
+  },
+  {
+    "id": "9914",
+    "tags": [
+      "medycyna"
+    ]
+  },
+  {
+    "id": "9915",
+    "tags": []
+  },
+  {
+    "id": "10254",
+    "tags": [
+      "praca z ludźmi"
+    ]
+  },
+  {
+    "id": "10550",
+    "tags": [
+      "praca z pojazdami"
+    ]
+  },
+  {
+    "id": "10811",
+    "tags": [
+      "praca z ludźmi"
+    ]
+  },
+  {
+    "id": "10958",
+    "tags": [
+      "medycyna"
+    ]
+  },
+  {
+    "id": "11052",
+    "tags": [
+      "praca z pojazdami"
+    ]
+  },
+  {
+    "id": "11140",
+    "tags": [
+      "transport"
+    ]
+  },
+  {
+    "id": "11461",
+    "tags": []
+  },
+  {
+    "id": "11596",
+    "tags": [
+      "edukacja"
+    ]
+  },
+  {
+    "id": "11676",
+    "tags": [
+      "praca z pojazdami"
+    ]
+  },
+  {
+    "id": "11718",
+    "tags": [
+      "IT"
+    ]
+  },
+  {
+    "id": "11842",
+    "tags": []
+  },
+  {
+    "id": "11976",
+    "tags": [
+      "praca z ludźmi"
+    ]
+  },
+  {
+    "id": "11988",
+    "tags": [
+      "praca fizyczna"
+    ]
+  }
+]
