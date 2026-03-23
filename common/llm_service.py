@@ -75,6 +75,30 @@ class LLMService:
         log.info(f"[LLMService] model={self.model} | last_usage=({self.last_usage}) | total_usage=({self.total_usage})")
         return response.choices[0].message.content
 
+    def chat_with_tools(
+        self,
+        messages: list[dict],
+        tools: list[dict],
+        **kwargs,
+    ):
+        """Call LLM with tool definitions, returning the full message object.
+
+        The returned message has both .content and .tool_calls attributes,
+        letting the caller inspect whether the model wants to invoke tools.
+        """
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            tools=tools,
+            **kwargs,
+        )
+        self._track_usage(response)
+        log.info(
+            f"[LLMService] model={self.model} | "
+            f"last_usage=({self.last_usage}) | total_usage=({self.total_usage})"
+        )
+        return response.choices[0].message
+
     def chat_structured(
         self,
         messages: list[dict],

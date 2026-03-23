@@ -2,3 +2,5 @@ openai
 python-dotenv
 requests
 dotenv
+fastapi
+uvicorn[standard]
