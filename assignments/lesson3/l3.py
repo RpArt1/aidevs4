@@ -126,23 +126,9 @@ app = FastAPI(title="Lesson 3 proxy skeleton")
 app.add_middleware(RequestResponseLoggingMiddleware)
 
 
-def _persist_message(session_id: str, role: str, content: str) -> None:
-    try:
-        session_manager.add_message(session_id, role, content)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
-    except SessionPersistenceError:
-        log.exception(
-            "Session persistence failed sessionID=%s role=%s", session_id, role
-        )
-        raise HTTPException(
-            status_code=500, detail="Session persistence failed"
-        ) from None
-
 
 @app.post("/", response_model=OperatorResponse)
 async def operator_message(payload: OperatorRequest) -> OperatorResponse:
-    _persist_message(payload.sessionID, "user", payload.msg)
     try:
         history = session_manager.get_history(payload.sessionID)
     except ValueError as e:
@@ -152,11 +138,9 @@ async def operator_message(payload: OperatorRequest) -> OperatorResponse:
         raise HTTPException(status_code=500, detail="Session persistence failed") from None
 
     working: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
-    for m in history:
-        role = m["role"] if isinstance(m, dict) else getattr(m, "role", None)
-        content = m["content"] if isinstance(m, dict) else getattr(m, "content", None)
-        if role and content is not None:
-            working.append({"role": role, "content": content})
+    # Restore full history including tool_calls/tool turns — do not strip fields.
+    working.extend(history)
+    working.append({"role": "user", "content": payload.msg})
 
     reply = ""
     max_iterations = 5
@@ -167,6 +151,7 @@ async def operator_message(payload: OperatorRequest) -> OperatorResponse:
             tool_calls = assistant_msg.tool_calls
             if not tool_calls:
                 reply = assistant_msg.content or ""
+                working.append({"role": "assistant", "content": reply})
                 break
 
             # Append assistant turn (with tool_calls) to working history
@@ -204,8 +189,14 @@ async def operator_message(payload: OperatorRequest) -> OperatorResponse:
         log.exception("LLM tool chat failed sessionID=%s", payload.sessionID)
         raise HTTPException(status_code=502, detail="LLM request failed") from None
 
+    # Persist the full turn — user message, all tool calls/results, final assistant reply.
+    # Skip index 0 (system prompt) so it is never stored in the session file.
+    try:
+        session_manager.save_history(payload.sessionID, working[1:])
+    except (ValueError, SessionPersistenceError):
+        log.exception("Session save failed sessionID=%s", payload.sessionID)
+        raise HTTPException(status_code=500, detail="Session persistence failed") from None
 
-    _persist_message(payload.sessionID, "assistant", reply)
     return OperatorResponse(msg=reply)
 
 
