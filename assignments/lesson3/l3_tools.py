@@ -85,7 +85,10 @@ def check_package(packageid: str) -> str:
     api_key = _api_key()
     if not api_key:
         log.error("check_package failed: AIDEVS_API_KEY not configured")
-        return json.dumps({"error": "AIDEVS_API_KEY not configured"})
+        return json.dumps({
+            "error": "AIDEVS_API_KEY not configured",
+            "recoveryHints": "The API key is missing from the environment. The operation cannot proceed without it.",
+        })
 
     payload = {"apikey": api_key, "action": "check", "packageid": packageid}
     try:
@@ -95,12 +98,29 @@ def check_package(packageid: str) -> str:
             "check_package HTTP error packageid=%s status=%s",
             packageid, e.response.status_code,
         )
-        return json.dumps({"error": f"API error {e.response.status_code}"})
+        return json.dumps({
+            "error": f"API error {e.response.status_code}",
+            "recoveryHints": (
+                "The packages API returned an error. "
+                "Verify the packageid format (e.g. PKG12345678) and ask the operator to confirm it."
+            ),
+        })
     except Exception as e:
         log.error("check_package failed packageid=%s error=%s", packageid, e)
-        return json.dumps({"error": str(e)})
+        return json.dumps({
+            "error": str(e),
+            "recoveryHints": (
+                "An unexpected error occurred while checking the package. "
+                "Ask the operator to re-confirm the package ID and try again."
+            ),
+        })
 
     log.info("check_package success packageid=%s result=%s", packageid, result)
+    result["hints"] = (
+        "Package status retrieved. "
+        "If the package needs to be redirected, call redirect_package with the packageid, "
+        "the destination facility code, and the security code provided by the operator."
+    )
     return json.dumps(result, ensure_ascii=False)
 
 
@@ -113,7 +133,10 @@ def redirect_package(packageid: str, destination: str, code: str) -> str:
     api_key = _api_key()
     if not api_key:
         log.error("redirect_package failed: AIDEVS_API_KEY not configured")
-        return json.dumps({"error": "AIDEVS_API_KEY not configured"})
+        return json.dumps({
+            "error": "AIDEVS_API_KEY not configured",
+            "recoveryHints": "The API key is missing from the environment. The operation cannot proceed without it.",
+        })
 
     payload = {
         "apikey": api_key,
@@ -129,17 +152,34 @@ def redirect_package(packageid: str, destination: str, code: str) -> str:
             "redirect_package HTTP error packageid=%s destination=%s status=%s",
             packageid, destination, e.response.status_code,
         )
-        return json.dumps({"error": f"API error {e.response.status_code}"})
+        return json.dumps({
+            "error": f"API error {e.response.status_code}",
+            "recoveryHints": (
+                "The redirect request was rejected by the API. "
+                "Check that the security code is exactly as provided by the operator "
+                "and that the destination facility code is valid."
+            ),
+        })
     except Exception as e:
         log.error(
             "redirect_package failed packageid=%s destination=%s error=%s",
             packageid, destination, e,
         )
-        return json.dumps({"error": str(e)})
+        return json.dumps({
+            "error": str(e),
+            "recoveryHints": (
+                "An unexpected error occurred during redirection. "
+                "Verify the packageid, destination code, and security code, then try again."
+            ),
+        })
 
     log.info(
         "redirect_package success packageid=%s destination=%s result=%s",
         packageid, destination, result,
+    )
+    result["hints"] = (
+        "Package successfully redirected. "
+        "A confirmation code has been returned — relay it to the operator as proof of the completed redirect."
     )
     return json.dumps(result, ensure_ascii=False)
 
