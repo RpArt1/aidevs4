@@ -68,11 +68,6 @@ TOOLS: list[dict] = [
     },
 ]
 
-
-def _api_key() -> str | None:
-    return os.getenv("AIDEVS_API_KEY")
-
-
 def _post(payload: dict) -> dict:
     """Send a POST request to the packages API and return parsed JSON."""
     with httpx.Client(timeout=15.0) as client:
@@ -84,7 +79,7 @@ def _post(payload: dict) -> dict:
 def check_package(packageid: str) -> str:
     """Check the status and location of a package. Returns JSON string."""
     log.info("check_package called packageid=%s", packageid)
-    api_key = _api_key()
+    api_key = os.getenv("AIDEVS_API_KEY")
     if not api_key:
         log.error("check_package failed: AIDEVS_API_KEY not configured")
         return json.dumps({
