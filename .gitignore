@@ -207,3 +207,13 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Course assignment instructions (do not commit per course rules)
+assignments/**/task*.md
+assignments/**/task*.txt
+assignments/**/description.md
+assignments/**/assignment-instruction*.txt
+assignments/**/*-instruction*.md
+assignments/**/*-instruction*.txt
+assignments/**/*-requiremnts.md
+assignments/**/*-requirements.md

@@ -14,7 +14,7 @@ load_dotenv()
 
 log = get_logger(__name__)
 
-PACKAGES_API_URL = "AIDEVS_PACKAGES_API_URL_ENV"
+PACKAGES_API_URL = os.getenv("AIDEVS_PACKAGES_API_URL", "")
 
 TOOLS: list[dict] = [
     {

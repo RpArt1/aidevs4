@@ -16,8 +16,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 API_KEY = os.getenv("AIDEVS_API_KEY", "")
-VERIFY_URL = os.getenv("AIDEVS_VERIFY_URL", "AIDEVS_VERIFY_URL_ENV")
-HUB_BASE = "AIDEVS_HUB_BASE_ENV"
+VERIFY_URL = os.getenv("AIDEVS_VERIFY_URL", "")
+HUB_BASE = os.getenv("AIDEVS_HUB_BASE", "")
 
 # ── Tool schemas (Chat Completions format) ───────────────────────────────────
 
