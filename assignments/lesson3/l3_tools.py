@@ -22,6 +22,7 @@ TOOLS: list[dict] = [
         "function": {
             "name": "check_package",
             "description": "Check the current status and location of a package.",
+            "strict": True,
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -43,6 +44,7 @@ TOOLS: list[dict] = [
                 "Redirect a package to a new destination facility. "
                 "Returns a confirmation code on success."
             ),
+            "strict": True,
             "parameters": {
                 "type": "object",
                 "properties": {
