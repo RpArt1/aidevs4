@@ -217,3 +217,7 @@ assignments/**/*-instruction*.md
 assignments/**/*-instruction*.txt
 assignments/**/*-requiremnts.md
 assignments/**/*-requirements.md
+
+# Lesson-specific secrets (URLs, API keys, tokens — never commit)
+assignments/**/secrets.env
+assignments/**/secrets.*.env
