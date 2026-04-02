@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import date
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -10,9 +11,10 @@ load_dotenv()
 load_dotenv(Path(__file__).parent / "secrets.env")
 
 from assignments.lesson4.l4_tools import TOOLS, execute_tool
-from common import get_logger
+from common import get_logger, setup_logging
 from common.llm_service import LLMService
 
+setup_logging()
 log = get_logger(__name__)
 llm = LLMService(model="openai/gpt-4o")
 
@@ -23,6 +25,7 @@ _SYSTEM_PROMPT = (Path(__file__).parent / "system_prompt.md").read_text().format
     SPK_DECLARATION_TEMPLATE_FILENAME=os.environ["SPK_DECLARATION_TEMPLATE_FILENAME"],
     SPK_ROUTES_IMAGE_URL=os.environ["SPK_ROUTES_IMAGE_URL"],
     SPK_ROUTES_IMAGE_FILENAME=os.environ["SPK_ROUTES_IMAGE_FILENAME"],
+    TODAY=date.today().isoformat(),
 )
 
 

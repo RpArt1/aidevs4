@@ -6,6 +6,7 @@ import base64
 import json
 
 import httpx
+import requests
 
 from common import get_logger
 from common.assignment_service import AssignmentService
@@ -201,12 +202,25 @@ def submit_declaration(declaration: str) -> str:
     log.info("submit_declaration called declaration=%s", declaration)
     try:
         result = _assignment.send("sendit", {"declaration": declaration})
+    except requests.exceptions.HTTPError as e:
+        status = e.response.status_code if e.response is not None else "unknown"
+        hub_body = e.response.text if e.response is not None else ""
+        log.error("submit_declaration failed error=%s hub_body=%s", e, hub_body)
+        return json.dumps({
+            "error": str(e),
+            "hubResponse": hub_body,
+            "recoveryHints": (
+                f"The hub rejected the declaration (HTTP {status}). "
+                "Read 'hubResponse' above — it contains the exact reason for rejection. "
+                "Fix only the field(s) mentioned there, then resubmit."
+            ),
+        })
     except Exception as e:
         log.error("submit_declaration failed error=%s", e)
         return json.dumps({
             "error": str(e),
             "recoveryHints": (
-                "The declaration could not be submitted due to a network or service error. "
+                "A network or service error occurred — the hub was not reached. "
                 "Do NOT modify the declaration content — retry the submission as-is. "
                 "If the error persists, verify that the AssignmentService is reachable."
             ),

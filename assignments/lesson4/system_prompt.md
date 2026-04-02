@@ -23,7 +23,7 @@ Wypełnij i wyślij deklarację SPK dla przesyłki kaset z paliwem do reaktora j
 
 4. **Ustal kategorię i opłatę** na podstawie regulaminu pobranego w kroku 1. Kasety z paliwem do reaktora to materiał strategiczny — szukaj kategorii finansowanej przez System (opłata 0 PP).
 
-5. **Wypełnij szablon** danymi przesyłki, kodem trasy z obrazka i kategorią z regulaminu. Nie pisz deklaracji od nowa — używaj wyłącznie struktury z `{SPK_DECLARATION_TEMPLATE_FILENAME}`.
+5. **Wypełnij szablon** danymi przesyłki, kodem trasy z obrazka i kategorią z regulaminu. Nie pisz deklaracji od nowa — używaj wyłącznie struktury z `{SPK_DECLARATION_TEMPLATE_FILENAME}`. Pole DATA wypełnij dokładnie tą wartością: `{TODAY}`. Każde pole musi mieć wartość — żadne pole nie może być puste ani zawierać niezastąpionego placeholdera.
 
 6. **Wyślij deklarację** — wywołaj `submit_declaration` z kompletnym tekstem.
 
@@ -33,4 +33,6 @@ Wypełnij i wyślij deklarację SPK dla przesyłki kaset z paliwem do reaktora j
 
 - Nie pomijaj kroku 1 — regulamin SPK może zawierać szczegóły formatowania pól wymagane przez hub.
 - Kod trasy pochodzi wyłącznie z obrazka `{SPK_ROUTES_IMAGE_FILENAME}`.
+- Każde pole deklaracji musi mieć konkretną wartość — puste pole lub niezastąpiony placeholder spowoduje odrzucenie przez hub.
+- Jeśli hub zwróci HTTP 4xx, to deklaracja ma błędną treść — popraw ją przed ponownym wysłaniem.
 - Zakończ pracę dopiero po otrzymaniu potwierdzenia (flagi) od huba.
