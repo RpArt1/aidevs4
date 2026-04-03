@@ -11,7 +11,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
 from assignments.lesson3.l3_tools import TOOLS, execute_tool
-from assignments.lesson3.session_manager import SessionManager, SessionPersistenceError
+from common.session_manager import SessionManager, SessionPersistenceError
 from common import build_uvicorn_log_config, get_logger, setup_logging
 from common.llm_service import LLMService
 

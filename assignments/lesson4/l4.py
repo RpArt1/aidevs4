@@ -13,10 +13,12 @@ load_dotenv(Path(__file__).parent / "secrets.env")
 from assignments.lesson4.l4_tools import TOOLS, execute_tool
 from common import get_logger, setup_logging
 from common.llm_service import LLMService
+from common.session_manager import SessionManager
 
 setup_logging()
 log = get_logger(__name__)
 llm = LLMService(model="openai/gpt-4o")
+session_manager = SessionManager()
 
 MAX_ITERATIONS = 10
 _SYSTEM_PROMPT = (Path(__file__).parent / "system_prompt.md").read_text().format(
@@ -63,6 +65,7 @@ def _run_iteration(messages: list[dict]) -> str | None:
 
 
 def run_agent() -> str:
+    session_id = f"lesson4-{date.today().isoformat()}"
     messages: list[dict] = [
         {"role": "system", "content": _SYSTEM_PROMPT},
         {"role": "user", "content": "Rozpocznij procedurę wypełnienia i wysłania deklaracji SPK."},
@@ -70,8 +73,11 @@ def run_agent() -> str:
     for step in range(1, MAX_ITERATIONS + 1):
         log.info("run_agent step=%d", step)
         result = _run_iteration(messages)
+        # Persist after every step — captures partial runs if agent crashes mid-loop.
+        # Skip index 0 (system prompt) so it is not stored in the session file.
+        session_manager.save_history(session_id, messages[1:])
         if result is not None:
-            log.info("run_agent done step=%d result=%s", step, result)
+            log.info("run_agent done step=%d session=%s result=%s", step, session_id, result)
             return result
     log.warning("run_agent hit max_iterations=%d without finishing", MAX_ITERATIONS)
     return ""
