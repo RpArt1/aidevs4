@@ -14,12 +14,12 @@ class RailwayApiClient:
         self,
         api_key: str,
         verify_url: str,
-        max_503_retries: int = 10,
+        max_retries: int = 10,
         base_backoff_s: float = 2.0,
     ) -> None:
         self._api_key = api_key
         self._verify_url = verify_url
-        self._max_503_retries = max_503_retries
+        self._max_retries = max_retries
         self._base_backoff_s = base_backoff_s
         self.log = get_logger(__name__)
 
@@ -31,7 +31,7 @@ class RailwayApiClient:
         }
 
         backoff = self._base_backoff_s
-        for attempt in range(self._max_503_retries + 1):
+        for attempt in range(self._max_retries + 1):
             response = requests.post(self._verify_url, json=payload, timeout=30)
 
             remaining = self._parse_int_header(response, "X-RateLimit-Remaining")
@@ -47,18 +47,23 @@ class RailwayApiClient:
             )
 
             if response.status_code == 503:
-                if attempt >= self._max_503_retries:
+                if attempt >= self._max_retries:
                     self.log.error("503 retries exhausted after %d attempts", attempt + 1)
                     break
                 sleep_s = min(backoff, 60.0)
-                self.log.warning(
-                    "503 received attempt=%d sleeping=%.1fs", attempt + 1, sleep_s
-                )
+                self.log.warning("503 attempt=%d sleeping=%.1fs", attempt + 1, sleep_s)
                 time.sleep(sleep_s)
                 backoff *= 2
                 continue
 
-            self._maybe_sleep_rate_limit(remaining, reset_at)
+            if response.status_code == 429:
+                if attempt >= self._max_retries:
+                    self.log.error("429 retries exhausted after %d attempts", attempt + 1)
+                    break
+                sleep_s = self._rate_limit_sleep_s(remaining, reset_at)
+                self.log.warning("429 attempt=%d sleeping=%.1fs", attempt + 1, sleep_s)
+                time.sleep(sleep_s)
+                continue
 
             try:
                 body: dict | str = response.json()
@@ -77,8 +82,8 @@ class RailwayApiClient:
 
         return {
             "ok": False,
-            "status": 503,
-            "body": "503 retries exhausted",
+            "status": 429,
+            "body": "rate-limit retries exhausted",
             "rate_limit": {"remaining": None, "reset_at": None},
         }
 
@@ -102,17 +107,13 @@ class RailwayApiClient:
         except (ValueError, TypeError):
             return value
 
-    def _maybe_sleep_rate_limit(self, remaining: int | None, reset_at: str | None) -> None:
-        if remaining != 0 or reset_at is None:
-            return
-        try:
-            reset_dt = datetime.fromisoformat(reset_at)
-        except ValueError:
-            self.log.warning("Could not parse reset_at=%s, skipping rate-limit sleep", reset_at)
-            return
-
-        now = datetime.now(tz=timezone.utc)
-        sleep_s = max(0.0, (reset_dt - now).total_seconds() + 0.5)
-        if sleep_s > 0:
-            self.log.info("rate limit exhausted, sleeping=%.1fs until %s", sleep_s, reset_at)
-            time.sleep(sleep_s)
+    def _rate_limit_sleep_s(self, remaining: int | None, reset_at: str | None) -> float:
+        """Return seconds to sleep before retrying a rate-limited request."""
+        if reset_at is not None:
+            try:
+                reset_dt = datetime.fromisoformat(reset_at)
+                now = datetime.now(tz=timezone.utc)
+                return max(1.0, (reset_dt - now).total_seconds() + 0.5)
+            except ValueError:
+                self.log.warning("Could not parse reset_at=%s, using default backoff", reset_at)
+        return 30.0
