@@ -10,7 +10,6 @@ load_dotenv()
 load_dotenv(Path(__file__).parent / "secrets.env")
 
 from assignments.assignment import Assignment
-from assignments.lesson5_1.l5_tools import TOOLS, execute_tool
 from common.llm_service import LLMService
 from common.events import (
     AgentEventEmitter,
@@ -26,15 +25,21 @@ from common.events import (
 MAX_ITERATIONS = 20
 _SYSTEM_PROMPT = (Path(__file__).parent / "system_prompt.md").read_text()
 
+TOOLS: list[dict] = []
 
-class Lesson5_1(Assignment):
+
+def execute_tool(name: str, args: dict) -> str:
+    raise NotImplementedError(f"Unknown tool: {name}")
+
+
+class Lesson2_1(Assignment):
     def __init__(self) -> None:
-        super().__init__("Lesson 5_1", "railway")
+        super().__init__("Lesson 2_1", "lesson2_1")
         self.llm = LLMService(model="openai/gpt-4o-mini")
 
         self._emitter = AgentEventEmitter()
         subscribe_event_logger(self._emitter)
-        self._langfuse = LangfuseSubscriber(tags=["l5_1"])
+        self._langfuse = LangfuseSubscriber(tags=["l2_1"])
         self._langfuse.attach(self._emitter)
 
     def solve(self) -> str:
@@ -42,8 +47,8 @@ class Lesson5_1(Assignment):
         ctx = EventContext(
             trace_id=str(uuid4()),
             session_id=self.name,
-            agent_id="lesson5_1",
-            root_agent_id="lesson5_1",
+            agent_id="lesson2_1",
+            root_agent_id="lesson2_1",
             depth=0,
             timestamp=t_start * 1000,
         )
@@ -52,7 +57,7 @@ class Lesson5_1(Assignment):
 
         messages: list[dict] = [
             {"role": "system", "content": _SYSTEM_PROMPT},
-            {"role": "user", "content": "Activate railway route X-01."},
+            {"role": "user", "content": "Complete the task."},
         ]
         result = ""
 
@@ -101,6 +106,6 @@ class Lesson5_1(Assignment):
 
 
 if __name__ == "__main__":
-    lesson = Lesson5_1()
+    lesson = Lesson2_1()
     result = lesson.solve()
     print(result)
