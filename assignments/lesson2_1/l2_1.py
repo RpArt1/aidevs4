@@ -10,6 +10,7 @@ load_dotenv()
 load_dotenv(Path(__file__).parent / "secrets.env")
 
 from assignments.assignment import Assignment
+from assignments.lesson2_1.l2_1_tools import TOOLS, execute_tool
 from common.llm_service import LLMService
 from common.events import (
     AgentEventEmitter,
@@ -25,17 +26,11 @@ from common.events import (
 MAX_ITERATIONS = 20
 _SYSTEM_PROMPT = (Path(__file__).parent / "system_prompt.md").read_text()
 
-TOOLS: list[dict] = []
-
-
-def execute_tool(name: str, args: dict) -> str:
-    raise NotImplementedError(f"Unknown tool: {name}")
-
 
 class Lesson2_1(Assignment):
     def __init__(self) -> None:
         super().__init__("Lesson 2_1", "lesson2_1")
-        self.llm = LLMService(model="openai/gpt-4o-mini")
+        self.llm = LLMService(model="anthropic/claude-sonnet-4-6")
 
         self._emitter = AgentEventEmitter()
         subscribe_event_logger(self._emitter)
@@ -84,7 +79,11 @@ class Lesson2_1(Assignment):
                 result = msg.content or ""
                 break
 
-            self._process_tool_calls(messages, msg.tool_calls, ctx, step, execute_tool)
+            fatal = self._process_tool_calls(messages, msg.tool_calls, ctx, step, execute_tool)
+            if fatal:
+                self.log.error("fatal tool error — aborting agent loop at step=%d", step)
+                result = "Task aborted: a fatal, non-recoverable error occurred (unreachable URL or similar). Check logs for details."
+                break
         else:
             self.log.warning("hit MAX_ITERATIONS=%d", MAX_ITERATIONS)
             self._emitter.emit(IterationLimitReached(

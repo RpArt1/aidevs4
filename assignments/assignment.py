@@ -36,7 +36,12 @@ class Assignment(ABC):
         ctx: EventContext,
         step: int,
         execute_tool: Callable[[str, dict], str],
-    ) -> None:
+    ) -> bool:
+        """Process tool calls and append results to messages.
+
+        Returns True if any tool result carries ``"fatal": true``, signalling
+        that the agent loop should stop immediately.
+        """
         messages.append({
             "role": "assistant",
             "content": None,
@@ -51,6 +56,7 @@ class Assignment(ABC):
         })
 
         emitter = self._emitter
+        fatal = False
 
         for tc in tool_calls:
             try:
@@ -107,4 +113,17 @@ class Assignment(ABC):
                 ))
 
             messages.append({"role": "tool", "tool_call_id": tc.id, "content": tool_result})
+
+            try:
+                parsed = json.loads(tool_result)
+                if parsed.get("fatal"):
+                    self.log.error(
+                        "fatal tool result at step=%d tool=%s — stopping agent loop",
+                        step, tc.function.name,
+                    )
+                    fatal = True
+            except (json.JSONDecodeError, AttributeError):
+                pass
+
+        return fatal
 
