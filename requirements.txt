@@ -5,3 +5,4 @@ dotenv
 fastapi
 uvicorn[standard]
 langfuse
+pillow
