@@ -1,0 +1,5 @@
+# Task Management Protocol
+- If a `*todo.md` or `*plan.md` exists in the project, you must treat it as the source of truth for progress.
+- Immediately after completing a step, sub-task, or code implementation, update the corresponding item in the plan.
+- Use `[x]` to mark items as complete.
+- Do not wait for me to ask you to update the plan; it is a mandatory part of your "Definition of Done" for every task.
