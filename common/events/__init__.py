@@ -48,6 +48,7 @@ from .event_types import (
     ToolCallCompleted,
 )
 from .emitter import AgentEventEmitter
+from .event_reporter import AgentEventReporter
 from .subscriber import subscribe_event_logger
 from .langfuse_subscriber import LangfuseSubscriber
 
@@ -65,6 +66,7 @@ __all__ = [
     "ToolCallCompleted",
     # infrastructure
     "AgentEventEmitter",
+    "AgentEventReporter",
     "subscribe_event_logger",
     "LangfuseSubscriber",
 ]

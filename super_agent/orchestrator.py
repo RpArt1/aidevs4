@@ -36,7 +36,8 @@ from common.events import (
     IterationLimitReached,
 )
 
-from .agent_base import BudgetExceeded, SuperAgentBase
+from .agent_base import SuperAgentBase
+from .agent_helper import BudgetExceeded
 
 
 DEFAULT_MAX_ITERATIONS = 8
@@ -126,6 +127,151 @@ class OrchestratorAgent(SuperAgentBase):
         # the fatal sentinel on the tool result and exits cleanly.
         self._final_result: dict[str, Any] | None = None
 
+        # Tracks the last step the loop entered, so exception handlers can
+        # tag IterationLimitReached / AgentError with the right step number
+        # without threading `step` through every helper.
+        self._last_step: int = 0
+
+    # ── Public entry point ──────────────────────────────────────────────────
+
+    def run(self) -> dict[str, Any]:
+        # Lazy import: orchestrator_tools pulls in planner_agent / solver_agent,
+        # which are separate todos in the build plan. Importing here keeps
+        # this module importable (and unit-testable) before those land.
+        from .orchestrator_tools import TOOLS, make_dispatcher
+
+        run_t0 = time()
+        self.budget.mark_started()
+        self._emitter.emit(AgentStarted(type="agent.started", ctx=self.ctx))
+
+        messages = self._initial_messages()
+        execute_tool = make_dispatcher(self)
+
+        try:
+            result = self._loop(messages, TOOLS, execute_tool)
+        except BudgetExceeded as exc:
+            result = self._on_budget_exceeded(exc)
+        except Exception as exc:
+            result = self._on_crash(exc)
+
+        return self._finalize(result, run_t0)
+
+    # ── ReAct loop ──────────────────────────────────────────────────────────
+
+    def _loop(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict],
+        execute_tool: Any,
+    ) -> dict[str, Any]:
+        """Run the ReAct loop. Returns the terminal result dict."""
+        for step in range(1, self.budget.max_iterations + 1):
+            self._last_step = step
+
+            self.budget.raise_if_exceeded(step)
+
+            self._log_step_header(step)
+            terminal = self._step(messages, tools, execute_tool, step)
+            if terminal is not None:
+                return terminal
+
+        return self._on_max_iter()
+
+    def _step(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict],
+        execute_tool: Any,
+        step: int,
+    ) -> dict[str, Any] | None:
+        """Run one ReAct step. Returns a terminal result dict, or None to continue."""
+        message = self._chat(messages, tools, step)
+
+        if not message.tool_calls:
+            return self._on_no_tool_calls(message, step)
+
+        fatal = self._process_tool_calls(
+            messages=messages,
+            tool_calls=message.tool_calls,
+            step=step,
+            execute_tool=execute_tool,
+        )
+        if fatal:
+            return self._on_fatal_tool(step)
+
+        return None
+
+    def _chat(self, messages: list[dict[str, Any]], tools: list[dict], step: int):
+        """Run one LLM call and emit the matching GenerationCompleted event."""
+        t0 = time()
+        message = self.llm.chat_with_tools(messages=messages, tools=tools)
+        self._emitter.emit(GenerationCompleted(
+            type="generation.completed",
+            ctx=self.ctx,
+            output=message.content,
+            model=self.llm.model,
+            input=messages,
+            input_tokens=self.llm.last_usage.input_tokens,
+            output_tokens=self.llm.last_usage.output_tokens,
+            duration_ms=(time() - t0) * 1000,
+            step=step,
+        ))
+        return message
+
+    # ── Terminal-state handlers (return result dict) ────────────────────────
+
+    def _on_fatal_tool(self, step: int) -> dict[str, Any]:
+        """`finish` fired: the dispatcher should have populated _final_result."""
+        if self._final_result is None:
+            self.log.error(
+                "fatal tool result but _final_result is None; dispatcher contract violated",
+            )
+            return self._give_up("fatal tool result with no recorded final result", step)
+        return {**self._final_result, "steps": step}
+
+    def _on_no_tool_calls(self, message, step: int) -> dict[str, Any]:
+        self.log.warning(
+            "orchestrator produced no tool_calls at step=%d; treating as give_up", step,
+        )
+        return {
+            **self._give_up(
+                "orchestrator returned a final message without calling finish()", step,
+            ),
+            "last_message": message.content or "",
+        }
+
+    def _on_max_iter(self) -> dict[str, Any]:
+        step = self._last_step
+        self.log.warning("orchestrator reached max_iterations=%d without finishing", self.budget.max_iterations)
+        self._emit_iter_limit(step)
+        return self._give_up(f"max_iterations={self.budget.max_iterations} reached", step)
+
+    def _on_budget_exceeded(self, exc: BudgetExceeded) -> dict[str, Any]:
+        step = self._last_step
+        self.log.warning("orchestrator budget exceeded: %s", exc.reason)
+        self._emit_iter_limit(step)
+        return self._give_up(f"budget exceeded: {exc.reason}", step)
+
+    def _on_crash(self, exc: Exception) -> dict[str, Any]:
+        step = self._last_step
+        self.log.exception("orchestrator crashed: %s", exc)
+        self._emitter.emit(AgentError(
+            type="agent.error",
+            ctx=self.ctx,
+            error_type="orchestrator_crash",
+            message=f"{type(exc).__name__}: {exc}",
+            step=step,
+        ))
+        return self._give_up(f"orchestrator crashed: {type(exc).__name__}: {exc}", step)
+
+    # ── Small helpers ───────────────────────────────────────────────────────
+
+    def _initial_messages(self) -> list[dict[str, Any]]:
+        return [
+            {"role": "system", "content": self._load_system_prompt()},
+            {"role": "user", "content": self._build_initial_user_message()},
+        ]
+
     def _load_system_prompt(self) -> str:
         prompt_file = PROMPTS_DIR / "orchestrator.md"
         if prompt_file.is_file():
@@ -149,155 +295,34 @@ class OrchestratorAgent(SuperAgentBase):
         ]
         return "\n".join(parts)
 
-    def run(self) -> dict[str, Any]:
-        # Local import: orchestrator_tools pulls in planner_agent / solver_agent,
-        # which are separate todos in the build plan. Importing lazily keeps
-        # this module importable (and unit-testable) before those land.
-        from .orchestrator_tools import TOOLS, make_dispatcher
+    def _log_step_header(self, step: int) -> None:
+        self.log.info(
+            "orchestrator step=%d/%d planner_left=%d solver_left=%d",
+            step,
+            self.budget.max_iterations,
+            self.planner_spawns_remaining,
+            self.solver_spawns_remaining,
+        )
 
-        emitter = self._emitter
-        ctx = self.ctx
-        run_t0 = time()
-        self.mark_started()
-
-        emitter.emit(AgentStarted(type="agent.started", ctx=ctx))
-
-        execute_tool = make_dispatcher(self)
-
-        messages: list[dict[str, Any]] = [
-            {"role": "system", "content": self._load_system_prompt()},
-            {"role": "user", "content": self._build_initial_user_message()},
-        ]
-
-        result: dict[str, Any]
-        last_step = 0
-
-        try:
-            for step in range(1, self.max_iterations + 1):
-                last_step = step
-
-                reason = self._budget_exceeded(step)
-                if reason:
-                    raise BudgetExceeded(reason)
-
-                self.log.info(
-                    "orchestrator step=%d/%d planner_left=%d solver_left=%d",
-                    step,
-                    self.max_iterations,
-                    self.planner_spawns_remaining,
-                    self.solver_spawns_remaining,
-                )
-
-                gen_t0 = time()
-                message = self.llm.chat_with_tools(messages=messages, tools=TOOLS)
-                gen_ms = (time() - gen_t0) * 1000
-
-                emitter.emit(GenerationCompleted(
-                    type="generation.completed",
-                    ctx=ctx,
-                    output=message.content,
-                    model=self.llm.model,
-                    input=messages,
-                    input_tokens=self.llm.last_usage.input_tokens,
-                    output_tokens=self.llm.last_usage.output_tokens,
-                    duration_ms=gen_ms,
-                    step=step,
-                ))
-
-                tool_calls = message.tool_calls
-                if not tool_calls:
-                    text = message.content or ""
-                    self.log.warning(
-                        "orchestrator produced no tool_calls at step=%d; treating as give_up",
-                        step,
-                    )
-                    result = {
-                        "status": "give_up",
-                        "reason": "orchestrator returned a final message without calling finish()",
-                        "last_message": text,
-                        "steps": step,
-                    }
-                    break
-
-                fatal = self._process_tool_calls(
-                    messages=messages,
-                    tool_calls=tool_calls,
-                    ctx=ctx,
-                    step=step,
-                    execute_tool=execute_tool,
-                )
-
-                if fatal:
-                    # `finish` tool fired: self._final_result is set by the dispatcher.
-                    if self._final_result is None:
-                        self.log.error(
-                            "fatal tool result but _final_result is None; "
-                            "dispatcher contract violated",
-                        )
-                        result = {
-                            "status": "give_up",
-                            "reason": "fatal tool result with no recorded final result",
-                            "steps": step,
-                        }
-                    else:
-                        result = {**self._final_result, "steps": step}
-                    break
-            else:
-                self.log.warning(
-                    "orchestrator reached max_iterations=%d without finishing",
-                    self.max_iterations,
-                )
-                emitter.emit(IterationLimitReached(
-                    type="agent.iteration_limit",
-                    ctx=ctx,
-                    max_iterations=self.max_iterations,
-                    step=last_step,
-                ))
-                result = {
-                    "status": "give_up",
-                    "reason": f"max_iterations={self.max_iterations} reached",
-                    "steps": last_step,
-                }
-
-        except BudgetExceeded as exc:
-            self.log.warning("orchestrator budget exceeded: %s", exc.reason)
-            emitter.emit(IterationLimitReached(
-                type="agent.iteration_limit",
-                ctx=ctx,
-                max_iterations=self.max_iterations,
-                step=last_step,
-            ))
-            result = {
-                "status": "give_up",
-                "reason": f"budget exceeded: {exc.reason}",
-                "steps": last_step,
-            }
-
-        except Exception as exc:
-            self.log.exception("orchestrator crashed: %s", exc)
-            emitter.emit(AgentError(
-                type="agent.error",
-                ctx=ctx,
-                error_type="orchestrator_crash",
-                message=f"{type(exc).__name__}: {exc}",
-                step=last_step,
-            ))
-            result = {
-                "status": "give_up",
-                "reason": f"orchestrator crashed: {type(exc).__name__}: {exc}",
-                "steps": last_step,
-            }
-
-        # Attach run-level attribution the spawner / __main__ can log or submit.
-        result.setdefault("plans_spawned", len(self.plans))
-        result.setdefault("solver_runs", len(self.solver_runs))
-
-        duration_ms = (time() - run_t0) * 1000
-        emitter.emit(AgentCompleted(
-            type="agent.completed",
-            ctx=ctx,
-            duration_ms=duration_ms,
-            result=result.get("status"),
+    def _emit_iter_limit(self, step: int) -> None:
+        self._emitter.emit(IterationLimitReached(
+            type="agent.iteration_limit",
+            ctx=self.ctx,
+            max_iterations=self.budget.max_iterations,
+            step=step,
         ))
 
+    @staticmethod
+    def _give_up(reason: str, step: int) -> dict[str, Any]:
+        return {"status": "give_up", "reason": reason, "steps": step}
+
+    def _finalize(self, result: dict[str, Any], run_t0: float) -> dict[str, Any]:
+        result.setdefault("plans_spawned", len(self.plans))
+        result.setdefault("solver_runs", len(self.solver_runs))
+        self._emitter.emit(AgentCompleted(
+            type="agent.completed",
+            ctx=self.ctx,
+            duration_ms=(time() - run_t0) * 1000,
+            result=result.get("status"),
+        ))
         return result

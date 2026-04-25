@@ -14,7 +14,7 @@
 #   PUBLIC_WEBHOOK_URL forwarded into the container (lesson3)
 #   AIDEVS_API_KEY     forwarded into the container
 #   AIDEVS_VERIFY_URL  forwarded into the container
-#   OPENAI_API_KEY     forwarded into the container
+#   OPENROUTER_API_KEY forwarded into the container
 #   LANGFUSE_*         forwarded into the container if set
 #   HOST_PORT          host port to publish 3000 on (default: 3000)
 #   EXTRA_DOCKER_ARGS  extra flags inserted before the image name
@@ -43,7 +43,7 @@ env_args=()
 for var in \
     AIDEVS_API_KEY \
     AIDEVS_VERIFY_URL \
-    OPENAI_API_KEY \
+    OPENROUTER_API_KEY \
     PUBLIC_WEBHOOK_URL \
     LANGFUSE_PUBLIC_KEY \
     LANGFUSE_SECRET_KEY \

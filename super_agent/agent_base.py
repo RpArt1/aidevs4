@@ -1,14 +1,8 @@
 """
 Local abstract base class shared by Orchestrator, Planner, and Solver.
 
-Standalone — does **not** inherit from `assignments.assignment.Assignment` and
-imports only from `common/`. The two packages (`super_agent/` and
-`assignments/`) stay fully decoupled. The ReAct tool-call plumbing here is a
-re-implementation of the pattern used in `assignments/assignment.py`, tailored
-to super-agent needs:
-
-- budget-aware (raises `BudgetExceeded` when iteration / wall-clock caps are hit
-  between tool calls)
+- budget-aware via composed `BudgetGuard` (raises `BudgetExceeded` when
+  iteration / wall-clock caps are hit between tool calls)
 - emits events through this agent's own `AgentEventEmitter` instance
 - no `AssignmentService` coupling — flag submission lives in a Solver tool
 - defines `run() -> dict` so the orchestrator's spawn-dispatcher can invoke any
@@ -26,24 +20,11 @@ from typing import Any, Callable
 from common import LLMService, get_logger
 from common.events import (
     AgentEventEmitter,
-    AgentError,
+    AgentEventReporter,
     EventContext,
-    ToolCallCompleted,
-    ToolCallStarted,
 )
 
-
-class BudgetExceeded(Exception):
-    """
-    Raised by `SuperAgentBase._process_tool_calls` (and may be raised by
-    subclasses' run loops) when this agent has exhausted its iteration count or
-    wall-clock budget. The spawning agent catches it and converts it into a
-    structured `{"outcome": "max_iter", ...}` result.
-    """
-
-    def __init__(self, reason: str) -> None:
-        super().__init__(reason)
-        self.reason = reason
+from .agent_helper import BudgetGuard
 
 
 class SuperAgentBase(ABC):
@@ -53,6 +34,9 @@ class SuperAgentBase(ABC):
     Holds shared per-run state and provides:
       * `self.ctx` — this agent's own `EventContext` (nested under `parent_ctx`
         when present, fresh root context otherwise)
+      * `self.events` — `AgentEventReporter` bound to `self.ctx`; typed
+        wrapper around the shared `AgentEventEmitter`
+      * `self.budget` — `BudgetGuard` enforcing iteration + wall-clock caps
       * `child_ctx(child_agent_id)` — factory for a sub-agent's context
       * `_process_tool_calls(...)` — budget-aware ReAct tool-call helper
       * abstract `run() -> dict` — uniform entry point for the dispatcher
@@ -77,11 +61,8 @@ class SuperAgentBase(ABC):
         self.parent_ctx = parent_ctx
         self._emitter = emitter
         self.llm = llm
-        self.max_iterations = max_iterations
-        self.wall_clock_s = wall_clock_s
+        self.budget = BudgetGuard(max_iterations=max_iterations, wall_clock_s=wall_clock_s)
         self.log = get_logger(f"super_agent.{agent_id}")
-
-        self._started_at: float | None = None
 
         now_ms = time() * 1000
         if parent_ctx is None:
@@ -108,6 +89,8 @@ class SuperAgentBase(ABC):
                 parent_agent_id=parent_ctx.agent_id,
             )
 
+        self.events = AgentEventReporter(emitter, self.ctx)
+
     def child_ctx(self, child_agent_id: str) -> EventContext:
         """
         Build a nested `EventContext` for a sub-agent this agent is about to
@@ -124,54 +107,52 @@ class SuperAgentBase(ABC):
             parent_agent_id=self.ctx.agent_id,
         )
 
-    def mark_started(self) -> None:
-        """
-        Record the wall-clock start of this agent's run loop. Subclasses must
-        call this once at the top of `run()` before entering the loop, so that
-        `_budget_exceeded` can enforce the wall-clock cap.
-        """
-        self._started_at = time()
-
-    def _budget_exceeded(self, step: int) -> str | None:
-        """
-        Return a human-readable reason string when this agent has exhausted its
-        iteration count or wall-clock budget; otherwise `None`.
-
-        Iteration cap is checked against `step` (1-indexed). Wall-clock cap is
-        only enforced once `mark_started()` has been called.
-        """
-        if step > self.max_iterations:
-            return f"max_iterations={self.max_iterations} exceeded at step={step}"
-        if self._started_at is not None:
-            elapsed = time() - self._started_at
-            if elapsed > self.wall_clock_s:
-                return (
-                    f"wall_clock_s={self.wall_clock_s} exceeded "
-                    f"(elapsed={elapsed:.1f}s) at step={step}"
-                )
-        return None
-
     def _process_tool_calls(
         self,
         messages: list[dict],
         tool_calls: list,
-        ctx: EventContext,
         step: int,
         execute_tool: Callable[[str, dict], str],
     ) -> bool:
-        """
-        Append the assistant's `tool_calls` and each tool's result to `messages`
-        in place, emitting `ToolCallStarted`/`ToolCallCompleted`/`AgentError`
-        events along the way.
+        """Execute a batch of tool calls and append their results to messages.
 
-        Returns `True` when any tool result carries `{"fatal": true}`, signalling
-        the outer agent loop should stop immediately.
+        The assistant turn that carried ``tool_calls`` is appended first,
+        followed by one ``role="tool"`` reply per call. Lifecycle events
+        (``ToolCallStarted`` / ``ToolCallCompleted`` / ``AgentError``) are
+        emitted around each invocation through ``self.events``.
 
-        Raises `BudgetExceeded` if the agent runs out of iteration or wall-clock
-        budget between tool calls (re-checked before each invocation so a
-        runaway batch of parallel tool calls cannot blow past the cap).
+        Args:
+            messages: Chat history. Mutated in place.
+            tool_calls: Tool-call objects from the LLM's assistant message.
+            step: 1-indexed iteration number, recorded on events.
+            execute_tool: Dispatcher mapping ``(name, args) -> result_str``.
+
+        Returns:
+            True when any tool result carries ``{"fatal": true}`` (signalling
+            the outer agent loop should stop immediately); False otherwise.
+
+        Raises:
+            BudgetExceeded: When the iteration or wall-clock budget is
+                exhausted between tool calls. Re-checked before each
+                invocation so a runaway batch of parallel tool calls cannot
+                blow past the cap.
         """
-        messages.append({
+        messages.append(self._assistant_tool_calls_msg(tool_calls))
+
+        fatal = False
+        for tc in tool_calls:
+            self.budget.raise_if_exceeded(step)
+
+            tool_msg, is_fatal = self._invoke_tool_call(tc, step, execute_tool)
+            messages.append(tool_msg)
+            fatal = fatal or is_fatal
+
+        return fatal
+
+    @staticmethod
+    def _assistant_tool_calls_msg(tool_calls: list) -> dict[str, Any]:
+        """Serialise the model's assistant turn carrying ``tool_calls``."""
+        return {
             "role": "assistant",
             "content": None,
             "tool_calls": [
@@ -185,87 +166,95 @@ class SuperAgentBase(ABC):
                 }
                 for tc in tool_calls
             ],
-        })
+        }
 
-        emitter = self._emitter
-        fatal = False
+    def _invoke_tool_call(
+        self,
+        tc: Any,
+        step: int,
+        execute_tool: Callable[[str, dict], str],
+    ) -> tuple[dict, bool]:
+        """Run one tool call end-to-end, emitting its lifecycle events.
 
-        for tc in tool_calls:
-            reason = self._budget_exceeded(step)
-            if reason:
-                raise BudgetExceeded(reason)
+        Returns:
+            Tuple of ``(tool_message_to_append, fatal_flag)``. The tool
+            message is the ``role="tool"`` chat entry the caller appends to
+            the conversation; ``fatal_flag`` is True when the result carries
+            the ``{"fatal": true}`` sentinel.
+        """
+        name = tc.function.name
+        args = self._parse_tool_args(tc, step)
 
-            try:
-                args = json.loads(tc.function.arguments)
-            except json.JSONDecodeError as exc:
-                args = {}
-                if emitter:
-                    emitter.emit(AgentError(
-                        type="agent.error",
-                        ctx=ctx,
-                        error_type="json_decode",
-                        message=str(exc),
-                        step=step,
-                        tool_name=tc.function.name,
-                    ))
+        self.events.tool_started(call_id=tc.id, tool_name=name, arguments=args, step=step)
+        t0 = time()
+        result, success = self._safe_execute(execute_tool, name, args, step)
+        self.events.tool_completed(
+            call_id=tc.id,
+            tool_name=name,
+            result=result,
+            success=success,
+            duration_ms=(time() - t0) * 1000,
+            step=step,
+        )
 
-            if emitter:
-                emitter.emit(ToolCallStarted(
-                    type="tool.started",
-                    ctx=ctx,
-                    call_id=tc.id,
-                    tool_name=tc.function.name,
-                    arguments=args,
-                    step=step,
-                ))
+        fatal = self._is_fatal_result(result)
+        if fatal:
+            self.log.error(
+                "fatal tool result at step=%d tool=%s — stopping agent loop",
+                step, name,
+            )
 
-            t0 = time()
-            try:
-                tool_result = execute_tool(tc.function.name, args)
-                success = True
-            except Exception as exc:
-                tool_result = json.dumps({"error": str(exc)})
-                success = False
-                if emitter:
-                    emitter.emit(AgentError(
-                        type="agent.error",
-                        ctx=ctx,
-                        error_type="tool_dispatch",
-                        message=str(exc),
-                        step=step,
-                        tool_name=tc.function.name,
-                    ))
+        return {"role": "tool", "tool_call_id": tc.id, "content": result}, fatal
 
-            if emitter:
-                emitter.emit(ToolCallCompleted(
-                    type="tool.completed",
-                    ctx=ctx,
-                    call_id=tc.id,
-                    tool_name=tc.function.name,
-                    result=tool_result,
-                    duration_ms=(time() - t0) * 1000,
-                    success=success,
-                    step=step,
-                ))
+    def _parse_tool_args(self, tc: Any, step: int) -> dict:
+        """Parse a tool call's JSON arguments; emit ``AgentError`` on failure.
 
-            messages.append({
-                "role": "tool",
-                "tool_call_id": tc.id,
-                "content": tool_result,
-            })
+        Returns an empty dict on parse failure so the dispatcher still gets a
+        well-typed payload (matching the model's intent of "call this tool").
+        """
+        try:
+            return json.loads(tc.function.arguments)
+        except json.JSONDecodeError as exc:
+            self.events.agent_error(
+                error_type="json_decode",
+                message=str(exc),
+                step=step,
+                tool_name=tc.function.name,
+            )
+            return {}
 
-            try:
-                parsed: Any = json.loads(tool_result)
-                if isinstance(parsed, dict) and parsed.get("fatal"):
-                    self.log.error(
-                        "fatal tool result at step=%d tool=%s — stopping agent loop",
-                        step, tc.function.name,
-                    )
-                    fatal = True
-            except (json.JSONDecodeError, TypeError):
-                pass
+    def _safe_execute(
+        self,
+        execute_tool: Callable[[str, dict], str],
+        name: str,
+        args: dict,
+        step: int,
+    ) -> tuple[str, bool]:
+        """Invoke the dispatcher, converting exceptions into a JSON error.
 
-        return fatal
+        Returns:
+            Tuple of ``(result_str, success_flag)``. On exception the result
+            is a ``{"error": "..."}`` JSON payload and ``success=False``.
+        """
+        try:
+            return execute_tool(name, args), True
+        except Exception as exc:
+            self.events.agent_error(
+                error_type="tool_dispatch",
+                message=str(exc),
+                step=step,
+                tool_name=name,
+            )
+            return json.dumps({"error": str(exc)}), False
+
+    @staticmethod
+    def _is_fatal_result(tool_result: str) -> bool:
+        """Return True iff ``tool_result`` is JSON of shape ``{"fatal": true}``."""
+        try:
+            parsed = json.loads(tool_result)
+        except (json.JSONDecodeError, TypeError):
+            return False
+        return isinstance(parsed, dict) and bool(parsed.get("fatal"))
 
     @abstractmethod
     def run(self) -> dict:
