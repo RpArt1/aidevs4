@@ -1,16 +1,41 @@
 from __future__ import annotations
 
 import logging
+import os
 import sys
 import threading
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
-LOG_DIR = Path(__file__).resolve().parent.parent / "logs"
+DEFAULT_LOG_DIR = Path(__file__).resolve().parent.parent / "logs"
+LOG_DIR = DEFAULT_LOG_DIR
 LOG_FILE = LOG_DIR / "app.log"
 
 _global_error_hooks_installed = False
+
+
+def _resolve_log_file() -> Path:
+    """Return a writable log file path, with a safe fallback for containers.
+
+    Preferred directory can be overridden with `AIDEVS_LOG_DIR` or `LOG_DIR`.
+    If that location is not writable, fall back to `/tmp/aidevs4_logs_<user>`.
+    """
+    global LOG_DIR, LOG_FILE
+
+    configured = os.getenv("AIDEVS_LOG_DIR") or os.getenv("LOG_DIR")
+    preferred_dir = Path(configured).expanduser() if configured else DEFAULT_LOG_DIR
+
+    try:
+        preferred_dir.mkdir(parents=True, exist_ok=True)
+        LOG_DIR = preferred_dir
+    except PermissionError:
+        user = os.getenv("USER") or str(os.getuid())
+        LOG_DIR = Path("/tmp") / f"aidevs4_logs_{user}"
+        LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+    LOG_FILE = LOG_DIR / "app.log"
+    return LOG_FILE
 
 
 def _install_global_error_hooks() -> None:
@@ -77,8 +102,7 @@ def setup_logging(level: int = logging.INFO) -> None:
     console.setFormatter(fmt)
     root.addHandler(console)
 
-    LOG_DIR.mkdir(exist_ok=True)
-    file_handler = logging.FileHandler(LOG_FILE, encoding="utf-8")
+    file_handler = logging.FileHandler(_resolve_log_file(), encoding="utf-8")
     file_handler.setFormatter(fmt)
     root.addHandler(file_handler)
 
@@ -101,7 +125,7 @@ def build_uvicorn_log_config(*, use_colors: bool | None = None) -> dict[str, Any
     cfg["handlers"]["project_file"] = {
         "formatter": "project",
         "class": "logging.FileHandler",
-        "filename": str(LOG_FILE),
+        "filename": str(_resolve_log_file()),
         "encoding": "utf-8",
     }
     cfg["loggers"]["uvicorn"]["handlers"] = ["default", "project_file"]
