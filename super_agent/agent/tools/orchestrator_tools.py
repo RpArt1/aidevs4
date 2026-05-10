@@ -15,10 +15,10 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable
 
-from .planner_agent import PlannerAgent
+from ..planner_agent import PlannerAgent
 
 if TYPE_CHECKING:
-    from .orchestrator import OrchestratorAgent
+    from ..orchestrator import OrchestratorAgent
 
 
 ToolDispatcher = Callable[[str, dict], str]
@@ -175,7 +175,7 @@ def _spawn_solver(orchestrator: "OrchestratorAgent", args: dict) -> str:
     if orchestrator.solver_spawns_remaining <= 0:
         return _json({"outcome": "error", "error_summary": "solver spawn budget exhausted"})
 
-    from .solver_agent import SolverAgent
+    from ..solver_agent import SolverAgent
 
     orchestrator.solver_spawns_remaining -= 1
     spawn_index = len(orchestrator.solver_runs) + 1

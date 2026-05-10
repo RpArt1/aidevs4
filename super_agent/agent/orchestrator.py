@@ -4,7 +4,7 @@ Orchestrator agent — the LLM ReAct supervisor.
 `OrchestratorAgent(SuperAgentBase)` bootstraps the run and then hands all
 control-flow decisions (plan / solve / re-plan / retry / give up) to the LLM
 via three tools: ``spawn_planner``, ``spawn_solver``, ``finish``. The tool
-schemas and dispatcher live in :mod:`super_agent.orchestrator_tools`; this
+schemas and dispatcher live in :mod:`super_agent.agent.tools.orchestrator_tools`; this
 module owns only the ReAct loop, run-level state, and lifecycle events.
 
 The orchestrator is deliberately thin: it does not retry or re-plan in Python.
@@ -138,7 +138,7 @@ class OrchestratorAgent(SuperAgentBase):
         # Lazy import: orchestrator_tools pulls in planner_agent / solver_agent,
         # which are separate todos in the build plan. Importing here keeps
         # this module importable (and unit-testable) before those land.
-        from .orchestrator_tools import TOOLS, make_dispatcher
+        from .tools.orchestrator_tools import TOOLS, make_dispatcher
 
         run_t0 = time()
         self.budget.mark_started()

@@ -29,10 +29,22 @@ from common.events import (
     subscribe_event_logger,
 )
 
-from super_agent.orchestrator import OrchestratorAgent
+from .orchestrator import OrchestratorAgent
 
 DEFAULT_MODEL = "openai/gpt-4o"
-WORKSPACES_DIR = Path(__file__).resolve().parent / "workspaces"
+DEFAULT_WORKSPACES_DIR = Path("/tmp/aidevs4_plan")
+
+
+def resolve_workspaces_dir() -> Path:
+    """Resolve the root directory for per-run workspaces.
+
+    Uses `SUPER_AGENT_WORKSPACES_DIR` when provided, otherwise defaults to
+    `/tmp/aidevs4_plan` so planner artifacts persist outside the repository.
+    """
+    configured = os.getenv("SUPER_AGENT_WORKSPACES_DIR")
+    if configured:
+        return Path(configured).expanduser()
+    return DEFAULT_WORKSPACES_DIR
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -122,11 +134,29 @@ def create_workspace(run_id: str) -> Path:
         run_id: Unique id for this Super Agent run.
 
     Returns:
-        Path to `super_agent/workspaces/<run_id>`.
+        Path to `<workspaces_dir>/<run_id>`.
     """
-    workspace = WORKSPACES_DIR / run_id
-    workspace.mkdir(parents=True, exist_ok=False)
-    return workspace
+    workspace_root = resolve_workspaces_dir()
+    workspace = workspace_root / run_id
+    try:
+        workspace.mkdir(parents=True, exist_ok=False)
+        return workspace
+    except PermissionError as exc:
+        # Common failure mode: a prior root-owned Docker run left
+        # /tmp/aidevs4_plan non-writable for the current user.
+        configured_root = os.getenv("SUPER_AGENT_WORKSPACES_DIR")
+        if configured_root:
+            raise PermissionError(
+                f"workspace root '{workspace_root}' is not writable. "
+                "Fix permissions or set SUPER_AGENT_WORKSPACES_DIR to a writable path.",
+            ) from exc
+
+        user = os.getenv("USER") or str(os.getuid())
+        fallback_root = Path("/tmp") / f"aidevs4_plan_{user}"
+        fallback_root.mkdir(parents=True, exist_ok=True)
+        fallback_workspace = fallback_root / run_id
+        fallback_workspace.mkdir(parents=True, exist_ok=False)
+        return fallback_workspace
 
 
 def build_emitter(enable_event_log: bool) -> tuple[AgentEventEmitter, LangfuseSubscriber]:
