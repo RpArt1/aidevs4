@@ -3,3 +3,31 @@
 - Immediately after completing a step, sub-task, or code implementation, update the corresponding item in the plan.
 - Use `[x]` to mark items as complete.
 - Do not wait for me to ask you to update the plan; it is a mandatory part of your "Definition of Done" for every task.
+
+# Coding IMPORTANT practices
+## 1. Core Principles & Readability
+- **Readability First:** Code must be easily readable by a human. Prioritize clarity over cleverness or one-liners.
+- **Function Length:** Favor shorter, focused functions over long ones. If a function exceeds 25-30 lines, evaluate if it should be split into smaller, testable units.
+- **DRY (Don't Repeat Yourself):** Abstract repetitive logic into reusable functions or classes.
+
+## 2. Python 3 Best Practices
+- **Type Hinting:** Use PEP 484 type hints for all function signatures (e.g., `def calculate(value: int) -> float:`). Ensure compatibility with static analysis tools like mypy.
+- **Modern Syntax:** - Use **f-strings** for all string formatting.
+    - Use the **pathlib** module for all file and directory path manipulations.
+    - Use **context managers** (`with` statements) for resource handling (files, sockets, etc.).
+- **Exception Handling:** Never use bare `except:`. Always catch specific exceptions (e.g., `FileNotFoundError`, `ValueError`). Avoid `pass` in exception blocks unless documented.
+
+## 3. Documentation & Comments
+- **Explain the "Why":** Add comments to explain non-obvious logic or "why" a specific approach was taken. Do not comment on "what" the code is doing if the code itself is self-explanatory.
+- **Docstrings:** Use Google-style docstrings for all modules, classes, and public functions. Include sections for `Args:`, `Returns:`, and `Raises:`.
+- **Maintainability:** If a piece of code is a temporary hack or requires future work, mark it with a `# TODO:` or `# FIXME:`.
+
+## 4. Architecture & Structure
+- **Single Responsibility:** Each class or function should have one clear purpose (SRP).
+- **Composition over Inheritance:** Prefer building complex behavior by combining objects rather than creating deep inheritance hierarchies.
+- **Imports:** Group imports according to PEP 8: standard library, third-party libraries, and local application imports. Use absolute imports.
+
+## 5. AI Interaction Rules
+- **Propose Before Refactor:** If a requested change requires a significant architectural shift or refactoring multiple files, outline the plan and ask for confirmation before writing code.
+- **Atomic Changes:** Provide code in logical, atomic blocks rather than dumping a whole file unless specifically asked.
+- **Testing Mindset:** When writing logic, suggest corresponding unit tests (using `unittest` or `pytest`) to verify the implementation.

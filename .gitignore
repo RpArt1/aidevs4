@@ -221,3 +221,4 @@ assignments/**/*-requirements.md
 # Lesson-specific secrets (URLs, API keys, tokens — never commit)
 assignments/**/secrets.env
 assignments/**/secrets.*.env
+workspaces/

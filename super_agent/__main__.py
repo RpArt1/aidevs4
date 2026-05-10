@@ -16,6 +16,12 @@ from pathlib import Path
 from typing import Sequence
 from uuid import uuid4
 
+# Running this file by path puts only `super_agent/` on sys.path; sibling `common`
+# lives at the repo root. Support both that and `python -m super_agent`.
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
 from common import LLMService, get_logger, setup_logging
 from common.events import (
     AgentEventEmitter,
@@ -23,7 +29,7 @@ from common.events import (
     subscribe_event_logger,
 )
 
-from .orchestrator import OrchestratorAgent
+from super_agent.orchestrator import OrchestratorAgent
 
 DEFAULT_MODEL = "openai/gpt-4o"
 WORKSPACES_DIR = Path(__file__).resolve().parent / "workspaces"
