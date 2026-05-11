@@ -25,28 +25,10 @@ from common.events import (
 
 from .agent_base import SuperAgentBase
 from .agent_helper import BudgetExceeded
-from .solver_tools import SOLVER_TOOLS, make_solver_dispatcher
+from .tools.solver_tools import SOLVER_TOOLS, make_solver_dispatcher
 
 DEFAULT_MAX_ITERATIONS = 15
 DEFAULT_WALL_CLOCK_S = 300
-
-PROMPTS_DIR = Path(__file__).parent / "prompts"
-
-FALLBACK_SYSTEM_PROMPT = """\
-You are the Solver. You receive a structured plan and execute it by writing Python code \
-until you have the correct answer, then submit it.
-
-Tools:
-- execute_python(code, timeout?): run Python in a subprocess; returns {stdout, stderr, returncode}.
-- submit_answer(task, answer): submit to aidevs; returns fatal sentinel with flag on success,
-  or {outcome: "incorrect", hint: "..."} on failure — read the hint and retry.
-
-Rules:
-1. Before every tool call, write one sentence explaining why.
-2. Follow plan steps in order; debug failures from stderr.
-3. Only call submit_answer when confident.
-4. Never fabricate a flag (FLG:...).
-"""
 
 
 class SolverAgent(SuperAgentBase):
@@ -83,6 +65,12 @@ class SolverAgent(SuperAgentBase):
         self._final_result: dict[str, Any] | None = None
         self._script_counter: int = 0
         self._last_step: int = 0
+
+    def _system_prompt_basename(self) -> str:
+        return "solver.md"
+
+    def _transform_system_prompt(self, raw: str) -> str:
+        return raw.replace("{workspace}", str(self.workspace))
 
     def run(self) -> dict[str, Any]:
         run_t0 = time()
@@ -217,13 +205,6 @@ class SolverAgent(SuperAgentBase):
             {"role": "system", "content": self._load_system_prompt()},
             {"role": "user", "content": self._build_user_message(plan)},
         ]
-
-    def _load_system_prompt(self) -> str:
-        prompt_file = PROMPTS_DIR / "solver.md"
-        if prompt_file.is_file():
-            return prompt_file.read_text(encoding="utf-8").replace("{workspace}", str(self.workspace))
-        self.log.debug("solver prompt file missing (%s); using inline default", prompt_file)
-        return FALLBACK_SYSTEM_PROMPT.replace("{workspace}", str(self.workspace))
 
     def _build_user_message(self, plan: dict[str, Any]) -> str:
         parts = [

@@ -14,6 +14,7 @@ import sys
 from typing import TYPE_CHECKING, Any, Callable
 
 from common.assignment_service import AssignmentService
+from common.logger import get_logger
 
 if TYPE_CHECKING:
     from .solver_agent import SolverAgent
@@ -21,26 +22,28 @@ if TYPE_CHECKING:
 
 ToolDispatcher = Callable[[str, dict], str]
 
+log = get_logger(__name__)
+
 _FLAG_RE = re.compile(r"FLG:[A-Za-z0-9_]+")
 
 SOLVER_TOOLS: list[dict[str, Any]] = [
-    {
+  {
         "type": "function",
         "function": {
             "name": "execute_python",
             "description": (
-                "Write Python code to a file in the workspace and execute it as a subprocess. "
-                "Use this to fetch data, process files, call APIs, or perform any computation. "
-                "The script inherits all environment variables (AIDEVS_API_KEY, OPENROUTER_API_KEY, etc.) "
-                "and has WORKSPACE set to the per-run directory. "
-                "Always state why you are writing this code before calling the tool."
+                "Executes a standalone Python script in the workspace to fulfill the current step of your plan. "
+                "Use this to fetch data, process files, call APIs, or perform computations. "
+                "IMPORTANT: The script runs as a subprocess. You will only see what the script explicitly outputs to stdout/stderr. "
+                "Therefore, you MUST include print() statements to capture the data you need. "
+                "The environment includes WORKSPACE (the per-run directory) and standard API keys (AIDEVS_API_KEY, OPENROUTER_API_KEY)."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "code": {
                         "type": "string",
-                        "description": "Python source code to execute.",
+                        "description": "The complete, executable Python source code. It must include all necessary imports and print the final results. Base this code strictly on your established plan.",
                     },
                     "timeout": {
                         "type": "integer",
@@ -131,6 +134,7 @@ def _submit_answer(solver: "SolverAgent", args: dict) -> str:
         svc = AssignmentService()
         response = svc.send(task=task, answer=answer)
     except Exception as exc:
+        log.warning("submit_answer request failed task=%s: %s", task, exc)
         return json.dumps({"error": f"submission failed: {exc}"})
 
     response_str = json.dumps(response, ensure_ascii=False)
@@ -141,4 +145,10 @@ def _submit_answer(solver: "SolverAgent", args: dict) -> str:
         return json.dumps({"fatal": True, "flag": flag, "response": response})
 
     hint = response.get("message", "") if isinstance(response, dict) else ""
+    log.warning(
+        "submit_answer rejected task=%s hint=%s full_response=%s",
+        task,
+        hint or "(none)",
+        response_str,
+    )
     return json.dumps({"outcome": "incorrect", "response": response, "hint": hint})

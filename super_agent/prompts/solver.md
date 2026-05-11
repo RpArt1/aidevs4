@@ -27,3 +27,19 @@ Returns `{"outcome": "incorrect", "hint": "..."}` on failure — read the hint a
 4. If `submit_answer` returns a hint in the response, use it to correct your approach before retrying.
 5. Never fabricate a flag. The flag format is `FLG:...` and comes only from `submit_answer`.
 6. Keep scripts focused — one script per logical step is cleaner than one giant script.
+
+
+## Subminssion instruction
+1. To get a flag, you usually need to send your correct answer to the Hub's API. 
+2. This is done by making a POST request with a JSON body structured like this:
+```
+{
+  "apikey": "your-api-key-here",
+  "task": "task-name",
+  "answer": "the-answer-in-the-required-format"
+}
+```
+3. The Hub will respond with either an error message (if something went sideways) or your hard-earned flag.
+
+4. Flag Format
+Flags follow the format {FLG:....}.

@@ -29,7 +29,7 @@ from common.events import (
     subscribe_event_logger,
 )
 
-from .orchestrator import OrchestratorAgent
+from super_agent.agent.orchestrator import OrchestratorAgent
 
 DEFAULT_MODEL = "openai/gpt-4o"
 DEFAULT_WORKSPACES_DIR = Path("/tmp/aidevs4_plan")

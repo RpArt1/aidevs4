@@ -45,8 +45,6 @@ DEFAULT_WALL_CLOCK_S = 15 * 60
 DEFAULT_MAX_PLANNER_SPAWNS = 2
 DEFAULT_MAX_SOLVER_SPAWNS = 3
 
-PROMPTS_DIR = Path(__file__).parent / "prompts"
-
 FALLBACK_SYSTEM_PROMPT = """\
 You are the Orchestrator, the top-level supervisor of a super-agent that \
 solves aidevs tasks. You do NOT write code or call task APIs yourself. You \
@@ -131,6 +129,12 @@ class OrchestratorAgent(SuperAgentBase):
         # tag IterationLimitReached / AgentError with the right step number
         # without threading `step` through every helper.
         self._last_step: int = 0
+
+    def _system_prompt_basename(self) -> str:
+        return "orchestrator.md"
+
+    def _system_prompt_fallback(self) -> str | None:
+        return FALLBACK_SYSTEM_PROMPT
 
     # ── Public entry point ──────────────────────────────────────────────────
 
@@ -271,13 +275,6 @@ class OrchestratorAgent(SuperAgentBase):
             {"role": "system", "content": self._load_system_prompt()},
             {"role": "user", "content": self._build_initial_user_message()},
         ]
-
-    def _load_system_prompt(self) -> str:
-        prompt_file = PROMPTS_DIR / "orchestrator.md"
-        if prompt_file.is_file():
-            return prompt_file.read_text(encoding="utf-8")
-        self.log.debug("orchestrator prompt file missing (%s); using inline default", prompt_file)
-        return FALLBACK_SYSTEM_PROMPT
 
     def _build_initial_user_message(self) -> str:
         parts = ["# Task (plain text, as given to the human)", "", self.task_text.strip()]

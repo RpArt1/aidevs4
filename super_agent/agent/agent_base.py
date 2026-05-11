@@ -26,6 +26,10 @@ from common.events import (
 
 from .agent_helper import BudgetGuard
 
+# This module lives in ``super_agent/agent/``; package root is two levels up.
+_SUPER_AGENT_ROOT = Path(__file__).resolve().parent.parent
+PROMPTS_DIR: Path = (_SUPER_AGENT_ROOT / "prompts").resolve()
+
 
 class SuperAgentBase(ABC):
     """
@@ -255,6 +259,37 @@ class SuperAgentBase(ABC):
         except (json.JSONDecodeError, TypeError):
             return False
         return isinstance(parsed, dict) and bool(parsed.get("fatal"))
+
+    @abstractmethod
+    def _system_prompt_basename(self) -> str:
+        """Markdown filename under ``PROMPTS_DIR`` (e.g. ``planner.md``)."""
+        ...
+
+    def _transform_system_prompt(self, raw: str) -> str:
+        """Optional post-read pass (subclass may substitute placeholders)."""
+        return raw
+
+    def _system_prompt_fallback(self) -> str | None:
+        """If the prompt file is absent, return this instead of raising."""
+        return None
+
+    def _load_system_prompt(self) -> str:
+        """Load the role system prompt from disk, with optional fallback."""
+        prompt_file = PROMPTS_DIR / self._system_prompt_basename()
+        if prompt_file.is_file():
+            raw = prompt_file.read_text(encoding="utf-8")
+            return self._transform_system_prompt(raw)
+
+        fallback = self._system_prompt_fallback()
+        if fallback is not None:
+            self.log.debug(
+                "system prompt file missing (%s); using inline fallback",
+                prompt_file,
+            )
+            return fallback
+
+        self.log.error("system prompt file missing (%s); no fallback configured", prompt_file)
+        raise ValueError(f"system prompt file missing: {prompt_file}")
 
     @abstractmethod
     def run(self) -> dict:

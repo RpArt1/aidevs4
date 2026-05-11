@@ -45,8 +45,6 @@ from .agent_base import SuperAgentBase
 DEFAULT_MAX_ITERATIONS = 1
 DEFAULT_WALL_CLOCK_S = 120
 
-PROMPTS_DIR = Path(__file__).parent / "prompts"
-
 VALID_TASK_FAMILIES = ("data_structured", "tool_react", "long_running_webhook")
 
 PLAN_SCHEMA: dict[str, Any] = {
@@ -129,41 +127,6 @@ PLAN_SCHEMA: dict[str, Any] = {
     },
 }
 
-FALLBACK_SYSTEM_PROMPT = """\
-You are the Planner. You receive a plain-text aidevs task description and \
-produce a single JSON plan that the Solver agent will use as its blueprint. \
-You do NOT write code, call APIs, or solve the task — you only plan.
-
-Output a strict JSON object with these fields:
-
-- goal: one-sentence restatement of the task.
-- task_family: one of "data_structured", "tool_react", "long_running_webhook".
-  * data_structured: process given input data, possibly via structured LLM \
-calls, and submit a derived JSON answer.
-  * tool_react: iterative reasoning with tool calls (HTTP, file ops) until \
-the answer is found; submit it.
-  * long_running_webhook: stand up a small server (e.g. FastAPI) that the \
-aidevs API will call into; submit the public URL.
-- verify_task_name: the short slug expected by the aidevs verify endpoint \
-(your best guess from the task text — e.g. "people", "mp_web").
-- required_env: names of env vars the Solver's generated code will need. \
-Always include AIDEVS_API_KEY and AIDEVS_VERIFY_URL when the answer must be \
-submitted; include PUBLIC_WEBHOOK_URL when task_family is long_running_webhook.
-- input_data: list of {path, description} for inputs the Solver should \
-expect (URLs, files dropped into the workspace, etc.). Empty list if none.
-- steps: ordered natural-language steps the Solver should execute.
-- hints: gotchas / invariants the Solver must respect (units, encodings, \
-auth quirks, retry semantics, etc.).
-- success_check: what the final submission response should look like (e.g. \
-"a JSON body containing a flag of the form FLG:...").
-
-If the orchestrator provided a critique of a previous plan, address every \
-point in it — do not silently repeat the mistake.
-
-Be concrete and pragmatic. Prefer specific verbs ("download X from URL Y", \
-"POST to Z") over vague ones ("handle the data").\
-"""
-
 
 class PlannerAgent(SuperAgentBase):
     """
@@ -222,6 +185,9 @@ class PlannerAgent(SuperAgentBase):
         self.critique = critique
         self.public_webhook_url = public_webhook_url
         self.verify_task_name_override = verify_task_name_override
+
+    def _system_prompt_basename(self) -> str:
+        return "planner.md"
 
     # ── Public entry point ──────────────────────────────────────────────────
 
@@ -295,16 +261,6 @@ class PlannerAgent(SuperAgentBase):
         return plan
 
     # ── Prompt assembly ─────────────────────────────────────────────────────
-
-    def _load_system_prompt(self) -> str:
-        """Read ``prompts/planner.md`` if present, else fall back to inline default."""
-        prompt_file = PROMPTS_DIR / "planner.md"
-        if prompt_file.is_file():
-            return prompt_file.read_text(encoding="utf-8")
-        self.log.debug(
-            "planner prompt file missing (%s); using inline default", prompt_file,
-        )
-        return FALLBACK_SYSTEM_PROMPT
 
     def _build_user_message(self) -> str:
         """Compose the user turn: task text + run-level hints + optional critique."""
