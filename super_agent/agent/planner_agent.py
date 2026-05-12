@@ -15,9 +15,10 @@ Why a separate agent at all?
     * Independently swappable for a stronger/cheaper model later without
       touching the Solver loop.
 
-The output schema mirrors the contract documented in the v2 design note
-(``goal`` / ``task_family`` / ``verify_task_name`` / ``required_env`` /
-``input_data`` / ``steps`` / ``hints`` / ``success_check``).
+The output schema mirrors ``super_agent/prompts/planner.md`` and the v2 design
+note (``goal`` / ``task_family`` / ``verify_task_name`` /
+``extracted_resources`` / ``required_env`` / ``input_data`` / ``expected_output``
+/ ``steps`` / ``hints`` / ``success_check``).
 """
 
 from __future__ import annotations
@@ -71,8 +72,37 @@ PLAN_SCHEMA: dict[str, Any] = {
                 "type": "string",
                 "description": (
                     "Short slug used by AssignmentService.send(task, answer); "
-                    "best guess from the task text (e.g. 'people', 'mp_web')."
+                    "should be extracted from the task text (e.g. 'nazwa zadania to: \"people\"')."
                 ),
+            },
+            "extracted_resources": {
+                "type": "object",
+                "description": (
+                    "Concrete URLs, exact strings, and payload shapes taken from the task text."
+                ),
+                "properties": {
+                    "urls": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "URLs, API endpoints, or webhooks from the task.",
+                    },
+                    "exact_strings": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": (
+                            "Passwords, labels, regex fragments, or other verbatim strings."
+                        ),
+                    },
+                    "expected_formats": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": (
+                            "How the final answer must be shaped (e.g. mock JSON for verify API)."
+                        ),
+                    },
+                },
+                "required": ["urls", "exact_strings", "expected_formats"],
+                "additionalProperties": False,
             },
             "required_env": {
                 "type": "array",
@@ -87,15 +117,33 @@ PLAN_SCHEMA: dict[str, Any] = {
                 "items": {
                     "type": "object",
                     "properties": {
-                        "path": {"type": "string"},
-                        "description": {"type": "string"},
+                        "source_type": {
+                            "type": "string",
+                            "enum": ["url", "local_file", "api"],
+                            "description": "Where this input comes from.",
+                        },
+                        "location": {
+                            "type": "string",
+                            "description": "Path, URL, or API identifier for the input.",
+                        },
+                        "description": {
+                            "type": "string",
+                            "description": "What the Solver will find and in what format.",
+                        },
                     },
-                    "required": ["path", "description"],
+                    "required": ["source_type", "location", "description"],
                     "additionalProperties": False,
                 },
                 "description": (
                     "Inputs the Solver should expect (URLs, files in the "
                     "workspace, etc.). Empty array if none."
+                ),
+            },
+            "expected_output": {
+                "type": "string",
+                "description": (
+                    "Expected JSON or structure for the verify POST body / answer field "
+                    "(from the task example), so the Solver does not guess."
                 ),
             },
             "steps": {
@@ -117,8 +165,10 @@ PLAN_SCHEMA: dict[str, Any] = {
             "goal",
             "task_family",
             "verify_task_name",
+            "extracted_resources",
             "required_env",
             "input_data",
+            "expected_output",
             "steps",
             "hints",
             "success_check",
@@ -335,7 +385,8 @@ class PlannerAgent(SuperAgentBase):
     def _build_summary(self, plan: dict[str, Any], plan_path: Path) -> dict[str, Any]:
         """Build the compact dict returned to the orchestrator's dispatcher.
 
-        Deliberately omits ``steps``/``hints``/``input_data``/``success_check``:
+        Deliberately omits ``steps``/``hints``/``input_data``/``extracted_resources``/
+        ``expected_output``/``success_check``:
         those live on disk in ``plan.json`` and are read by the Solver, not by
         the Orchestrator. Keeping the orchestrator's context lean is the whole
         point of the spawn-then-summarize pattern.

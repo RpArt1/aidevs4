@@ -93,9 +93,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional tracing session id. Defaults to the generated run id.",
     )
     parser.add_argument(
-        "--no-event-log",
+        "--mock-solver",
         action="store_true",
-        help="Disable stdout event subscriber output.",
+        help=(
+            "Do not run SolverAgent; spawn_solver returns a mock FLG:MOCK success. "
+            "Useful to exercise PlannerAgent / orchestrator without full solve flow."
+        ),
     )
     return parser
 
@@ -190,7 +193,7 @@ def run_super_agent(args: argparse.Namespace, task_text: str) -> dict:
     """
     run_id = str(uuid4())
     workspace = create_workspace(run_id)
-    emitter, langfuse = build_emitter(enable_event_log=not args.no_event_log)
+    emitter, langfuse = build_emitter(enable_event_log=True)
     log = get_logger("super_agent.__main__")
 
     log.info("starting super-agent run_id=%s workspace=%s", run_id, workspace)
@@ -204,6 +207,7 @@ def run_super_agent(args: argparse.Namespace, task_text: str) -> dict:
             public_webhook_url=args.public_webhook_url,
             verify_task_name_override=args.verify_task_name_override,
             session_id=args.session_id,
+            mock_solver=args.mock_solver,
         )
         result = orchestrator.run()
         result.setdefault("run_id", run_id)

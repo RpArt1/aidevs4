@@ -7,6 +7,9 @@
 #   super_agent/docker/run.sh "<inline task text>"
 #   super_agent/docker/run.sh --task-file assignments/lesson1/task.txt
 #   cat task.txt | super_agent/docker/run.sh --stdin
+#   super_agent/docker/run.sh --shell
+#     → opens an interactive bash inside the same image/mounts; check e.g.
+#       `head -50 /app/super_agent/prompts/planner.md` to confirm prompt revision.
 #
 # Env knobs:
 #   IMAGE              image tag to build/run (default: super_agent:dev)
@@ -28,6 +31,12 @@ HOST_PORT="${HOST_PORT:-9999}"
 PLAN_PERSIST_DIR="${PLAN_PERSIST_DIR:-/tmp/aidevs4_plan}"
 DOCKER_RUN_AS_HOST_USER="${DOCKER_RUN_AS_HOST_USER:-1}"
 
+RUN_SHELL=0
+if [[ "${1:-}" == "--shell" ]]; then
+    RUN_SHELL=1
+    shift
+fi
+
 # Resolve repo root (the build context) regardless of where this script is
 # invoked from.
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
@@ -41,8 +50,12 @@ env_file_args=()
 if [[ -f "${ENV_FILE}" ]]; then
     env_file_args+=(--env-file "${ENV_FILE}")
 fi
+echo "Building context from: ${REPO_ROOT}"
 
-if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
+
+if [[ "${SKIP_BUILD:-0}" == "1" ]]; then
+    echo ">> SKIP_BUILD=1 — using existing ${IMAGE} (no docker build)" >&2
+else
     echo ">> building ${IMAGE} from ${REPO_ROOT}" >&2
     docker build \
         -f "${SCRIPT_DIR}/Dockerfile" \
@@ -98,9 +111,20 @@ if [[ "${DOCKER_RUN_AS_HOST_USER}" == "1" ]]; then
 fi
 
 echo ">> running ${IMAGE}" >&2
+
+interactive_flags=(-i)
+entrypoint_args=()
+run_cli=("$@")
+if [[ "${RUN_SHELL}" == "1" ]]; then
+    interactive_flags=(-it)
+    entrypoint_args=(--entrypoint /bin/bash)
+    run_cli=()
+    echo ">> interactive shell — verify prompts: sed -n '1,55p' /app/super_agent/prompts/planner.md" >&2
+fi
+
 exec docker run \
     --rm \
-    -i \
+    "${interactive_flags[@]}" \
     --cap-drop=ALL \
     --security-opt=no-new-privileges \
     --pids-limit=256 \
@@ -113,5 +137,6 @@ exec docker run \
     "${env_args[@]}" \
     "${mount_args[@]}" \
     "${extra_args[@]}" \
+    "${entrypoint_args[@]}" \
     "${IMAGE}" \
-    "$@"
+    "${run_cli[@]}"

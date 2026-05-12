@@ -220,10 +220,35 @@ class SolverAgent(SuperAgentBase):
             parts.append("**Required env vars**: " + ", ".join(plan["required_env"]))
             parts.append("")
 
+        resources = plan.get("extracted_resources")
+        if isinstance(resources, dict) and any(resources.get(k) for k in (
+            "urls", "exact_strings", "expected_formats",
+        )):
+            parts.append("**Extracted resources**:")
+            for label, key in (
+                ("URLs", "urls"),
+                ("Exact strings", "exact_strings"),
+                ("Expected formats", "expected_formats"),
+            ):
+                vals = resources.get(key) if isinstance(resources.get(key), list) else []
+                for entry in vals:
+                    parts.append(f"  - [{label}] {entry}")
+            parts.append("")
+
         if plan.get("input_data"):
             parts.append("**Input data**:")
             for item in plan["input_data"]:
-                parts.append(f"  - {item.get('path')}: {item.get('description')}")
+                if not isinstance(item, dict):
+                    continue
+                loc = item.get("location") or item.get("path") or ""
+                desc = item.get("description") or ""
+                st = item.get("source_type") or ""
+                parts.append(f"  - ({st}) {loc}: {desc}")
+            parts.append("")
+
+        if plan.get("expected_output"):
+            parts.append("**Expected output (verify payload / answer shape)**:")
+            parts.append(f"  {plan['expected_output']}")
             parts.append("")
 
         parts.append("**Steps**:")

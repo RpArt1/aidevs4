@@ -19,6 +19,7 @@ from ..planner_agent import PlannerAgent
 
 if TYPE_CHECKING:
     from ..orchestrator import OrchestratorAgent
+    from ..solver_agent import SolverAgent
 
 
 ToolDispatcher = Callable[[str, dict], str]
@@ -169,16 +170,32 @@ def _spawn_planner(orchestrator: "OrchestratorAgent", args: dict) -> str:
 def _spawn_solver(orchestrator: "OrchestratorAgent", args: dict) -> str:
     """Run `SolverAgent`, record its compact result, and return JSON.
 
-    `SolverAgent` is imported lazily so the orchestrator and planner can be
-    loaded while the solver implementation is still being developed.
+    `SolverAgent` is imported lazily (below mock_solver shortcut) to avoid a circular import:
+    ``solver_agent`` → ``tools`` → ``orchestrator_tools`` → ``solver_agent``.
     """
     if orchestrator.solver_spawns_remaining <= 0:
         return _json({"outcome": "error", "error_summary": "solver spawn budget exhausted"})
 
-    from ..solver_agent import SolverAgent
-
     orchestrator.solver_spawns_remaining -= 1
     spawn_index = len(orchestrator.solver_runs) + 1
+
+    if orchestrator.mock_solver:
+        result: dict[str, Any] = {
+            "outcome": "flag",
+            "flag": "FLG:MOCK",
+            "submit_response": {"mock": True},
+            "mock_solver": True,
+        }
+        result["spawn_index"] = spawn_index
+        orchestrator.solver_runs.append(result)
+        orchestrator.log.info(
+            "mock_solver: skipped SolverAgent (spawn_index=%s plan_path=%s)",
+            spawn_index,
+            args.get("plan_path"),
+        )
+        return _json(result)
+
+    from ..solver_agent import SolverAgent
 
     solver = SolverAgent(
         plan_path=Path(str(args["plan_path"])),

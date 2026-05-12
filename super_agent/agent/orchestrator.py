@@ -92,6 +92,7 @@ class OrchestratorAgent(SuperAgentBase):
         wall_clock_s: int = DEFAULT_WALL_CLOCK_S,
         max_planner_spawns: int = DEFAULT_MAX_PLANNER_SPAWNS,
         max_solver_spawns: int = DEFAULT_MAX_SOLVER_SPAWNS,
+        mock_solver: bool = False,
         session_id: str | None = None,
         parent_ctx: EventContext | None = None,
     ) -> None:
@@ -110,6 +111,7 @@ class OrchestratorAgent(SuperAgentBase):
         self.task_text = task_text
         self.public_webhook_url = public_webhook_url
         self.verify_task_name_override = verify_task_name_override
+        self.mock_solver = mock_solver
 
         # Spawn budgets — decremented by the dispatcher in orchestrator_tools.
         self.planner_spawns_remaining = max_planner_spawns
@@ -285,6 +287,13 @@ class OrchestratorAgent(SuperAgentBase):
             env_hints.append(f"verify_task_name (override)={self.verify_task_name_override}")
         if env_hints:
             parts += ["", "# Run-level context", *(f"- {h}" for h in env_hints)]
+        if self.mock_solver:
+            parts += [
+                "",
+                "# Run mode",
+                "Solver is MOCKED: `spawn_solver` does not execute ReAct — it immediately returns "
+                "outcome=flag with flag FLG:MOCK so you can validate planning only.",
+            ]
         parts += [
             "",
             "# Instruction",

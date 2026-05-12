@@ -35,8 +35,9 @@ RUN pip install -r /app/requirements.txt
 # solver's generated code is allowed to `import common` if it wants to.
 # `super_agent/workspaces/` is recreated empty on each run so we don't ship
 # host scratch into the image.
+ARG CACHEBUST=1
 COPY common/ /app/common/
-COPY assignments/ /app/assignments/
+#COPY assignments/ /app/assignments/
 COPY super_agent/ /app/super_agent/
 COPY pyproject.toml /app/pyproject.toml
 

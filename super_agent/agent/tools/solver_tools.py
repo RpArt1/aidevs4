@@ -17,7 +17,7 @@ from common.assignment_service import AssignmentService
 from common.logger import get_logger
 
 if TYPE_CHECKING:
-    from .solver_agent import SolverAgent
+    from ..solver_agent import SolverAgent
 
 
 ToolDispatcher = Callable[[str, dict], str]
