@@ -239,6 +239,42 @@ class PlannerAgent(SuperAgentBase):
     def _system_prompt_basename(self) -> str:
         return "planner.md"
 
+    def _transform_system_prompt(self, raw: str) -> str:
+        """Inject a generated schema example so the prompt never drifts from PLAN_SCHEMA."""
+        return raw.replace("{SCHEMA_EXAMPLE}", self._render_schema_example())
+
+    @staticmethod
+    def _render_schema_example() -> str:
+        """Walk PLAN_SCHEMA and produce a compact illustrative JSON string.
+
+        Each field is represented by a value whose shape and content come
+        directly from the schema definition, so adding or renaming a field in
+        PLAN_SCHEMA automatically updates the prompt example on the next run.
+        """
+        def example_for(prop: dict[str, Any]) -> Any:
+            if "enum" in prop:
+                # Show the first valid value so the LLM sees a concrete choice.
+                return prop["enum"][0]
+            kind = prop.get("type")
+            if kind == "string":
+                return prop.get("description", "<string>")
+            if kind == "array":
+                items = prop.get("items", {})
+                if items.get("type") == "object":
+                    return [example_for(items)]
+                # Array of scalars: single-item list using the items description.
+                return [items.get("description", "<string>")]
+            if kind == "object":
+                sub_props = prop.get("properties", {})
+                sub_required = prop.get("required", list(sub_props))
+                return {k: example_for(sub_props[k]) for k in sub_required}
+            return "<value>"
+
+        top = PLAN_SCHEMA["schema"]
+        required_keys = top.get("required", list(top["properties"]))
+        example = {k: example_for(top["properties"][k]) for k in required_keys}
+        return json.dumps(example, indent=2, ensure_ascii=False)
+
     # ── Public entry point ──────────────────────────────────────────────────
 
     def run(self) -> dict[str, Any]:

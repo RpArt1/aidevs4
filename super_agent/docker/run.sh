@@ -60,6 +60,7 @@ else
     docker build \
         -f "${SCRIPT_DIR}/Dockerfile" \
         -t "${IMAGE}" \
+        --build-arg CACHEBUST="$(date +%s)" \
         "${REPO_ROOT}" </dev/null
 fi
 

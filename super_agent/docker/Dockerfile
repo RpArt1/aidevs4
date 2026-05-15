@@ -36,6 +36,8 @@ RUN pip install -r /app/requirements.txt
 # `super_agent/workspaces/` is recreated empty on each run so we don't ship
 # host scratch into the image.
 ARG CACHEBUST=1
+# Reference CACHEBUST so Docker actually invalidates the cache when the arg changes.
+RUN echo "cachebust=$CACHEBUST"
 COPY common/ /app/common/
 #COPY assignments/ /app/assignments/
 COPY super_agent/ /app/super_agent/
