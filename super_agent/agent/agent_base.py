@@ -189,6 +189,7 @@ class SuperAgentBase(ABC):
         name = tc.function.name
         args = self._parse_tool_args(tc, step)
 
+        self.log.info("tool.intent  step=%d  tool=%s  %s", step, name, self._format_tool_intent(name, args))
         self.events.tool_started(call_id=tc.id, tool_name=name, arguments=args, step=step)
         t0 = time()
         result, success = self._safe_execute(execute_tool, name, args, step)
@@ -250,6 +251,25 @@ class SuperAgentBase(ABC):
                 tool_name=name,
             )
             return json.dumps({"error": str(exc)}), False
+
+    @staticmethod
+    def _format_tool_intent(name: str, args: dict) -> str:
+        """Return the model's declared intent for a tool call.
+
+        All solver tools carry a required ``reason`` field; show it as-is.
+        Fall back to a concise key=value summary for tools that don't.
+        """
+        reason = args.get("reason")
+        if reason:
+            return str(reason)
+
+        # Fallback for tools without a reason field — omit bulky values like code.
+        pairs = "  ".join(
+            f"{k}={json.dumps(v, ensure_ascii=False)[:120]}"
+            for k, v in args.items()
+            if k != "code"
+        )
+        return pairs or "(no args)"
 
     @staticmethod
     def _is_fatal_result(tool_result: str) -> bool:

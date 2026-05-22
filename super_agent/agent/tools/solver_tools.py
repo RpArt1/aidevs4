@@ -12,6 +12,8 @@ import re
 import subprocess
 import sys
 from typing import TYPE_CHECKING, Any, Callable
+import debugpy
+
 
 from common.assignment_service import AssignmentService
 from common.logger import get_logger
@@ -41,6 +43,13 @@ SOLVER_TOOLS: list[dict[str, Any]] = [
             "parameters": {
                 "type": "object",
                 "properties": {
+                    "reason": {
+                        "type": "string",
+                        "description": (
+                            "One or two sentences explaining WHY this script is needed "
+                            "and WHAT it will produce. Written before the code is run."
+                        ),
+                    },
                     "code": {
                         "type": "string",
                         "description": "The complete, executable Python source code. It must include all necessary imports and print the final results. Base this code strictly on your established plan.",
@@ -51,7 +60,7 @@ SOLVER_TOOLS: list[dict[str, Any]] = [
                         "default": 60,
                     },
                 },
-                "required": ["code"],
+                "required": ["reason", "code"],
                 "additionalProperties": False,
             },
         },
@@ -127,14 +136,18 @@ def _execute_python(solver: "SolverAgent", args: dict) -> str:
 
 
 def _submit_answer(solver: "SolverAgent", args: dict) -> str:
+    log.info(f"\n\n..... Submitting answer .........\n\n")
+    # debugpy.listen(("0.0.0.0", 5678))
+    # debugpy.wait_for_client()
     task = str(args.get("task") or "")
     answer = args.get("answer")
 
     try:
-        svc = AssignmentService()
-        response = svc.send(task=task, answer=answer)
+        assignment_service = AssignmentService()
+        response = assignment_service.send(task=task, answer=answer)
+        log.info(f"Response: {response}")
     except Exception as exc:
-        log.warning("submit_answer request failed task=%s: %s", task, exc)
+        log.error("submit_answer request failed task=%s: %s", task, exc)
         return json.dumps({"error": f"submission failed: {exc}"})
 
     response_str = json.dumps(response, ensure_ascii=False)

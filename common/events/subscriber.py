@@ -1,11 +1,15 @@
 """Built-in subscribers for the agent event bus."""
 
+import logging
+
 from .emitter import AgentEventEmitter
+
+logger = logging.getLogger(__name__)
 
 
 def subscribe_event_logger(emitter: AgentEventEmitter) -> None:
     """
-    Register a wildcard handler that prints each lifecycle event to stdout.
+    Register a wildcard handler that logs each lifecycle event at DEBUG level.
 
     Call this before the agent run starts. Adding or removing this subscriber
     requires no changes to the emitter or the runner.
@@ -14,25 +18,25 @@ def subscribe_event_logger(emitter: AgentEventEmitter) -> None:
     def handler(event) -> None:
         match event.type:
             case "agent.started":
-                print(f"[agent] agent.started   agent_id={event.ctx.agent_id}")
+                logger.debug("[agent] agent.started   agent_id=%s", event.ctx.agent_id)
             case "agent.completed":
-                print(f"[agent] agent.completed   duration_ms={event.duration_ms:.0f}   result={event.result!r}")
+                logger.debug("[agent] agent.completed   duration_ms=%.0f   result=%r", event.duration_ms, event.result)
             case "agent.error":
-                print(f"[agent] agent.error   error_type={event.error_type}   step={event.step}   msg={event.message}")
+                logger.debug("[agent] agent.error   error_type=%s   step=%s   msg=%s", event.error_type, event.step, event.message)
             case "agent.iteration_limit":
-                print(f"[agent] agent.iteration_limit   step={event.step}/{event.max_iterations}")
+                logger.debug("[agent] agent.iteration_limit   step=%s/%s", event.step, event.max_iterations)
             case "generation.completed":
                 out = event.output or ""
-                print(
-                    f"[gen]   generation.completed   step={event.step}   "
-                    f"tokens={event.input_tokens}+{event.output_tokens}   output={out!r}"
+                logger.debug(
+                    "[gen]   generation.completed   step=%s   tokens=%s+%s   output=%r",
+                    event.step, event.input_tokens, event.output_tokens, out,
                 )
             case "tool.started":
-                print(f"[tool]  tool.started   step={event.step}   tool={event.tool_name}   call_id={event.call_id}")
+                logger.debug("[tool]  tool.started   step=%s   tool=%s   call_id=%s", event.step, event.tool_name, event.call_id)
             case "tool.completed":
                 status = "ok" if event.success else "FAIL"
-                print(f"[tool]  tool.completed   step={event.step}   tool={event.tool_name}   status={status}   duration_ms={event.duration_ms:.0f}")
+                logger.debug("[tool]  tool.completed   step=%s   tool=%s   status=%s   duration_ms=%.0f", event.step, event.tool_name, status, event.duration_ms)
             case _:
-                print(f"[event] {event.type}")
+                logger.debug("[event] %s", event.type)
 
     emitter.on_any(handler)

@@ -28,5 +28,7 @@ class AssignmentService:
         }
         log.info(f"Sending payload: {payload}")
         response = requests.post(self.verify_url, json=payload, timeout=30)
-        response.raise_for_status()
+        if response.status_code != 200:
+            log.error(f"Failed to send payload, response code: {response.status_code}, reason: {response.reason}, response text: {response.text}")
+            raise requests.exceptions.HTTPError(f"Failed to send payload, response code: {response.status_code}, reason: {response.reason}, response text: {response.text}")
         return response.json()
