@@ -105,7 +105,8 @@ def setup_logging(level: int = logging.INFO) -> None:
     file_handler = logging.FileHandler(_resolve_log_file(), encoding="utf-8")
     file_handler.setFormatter(fmt)
     root.addHandler(file_handler)
-
+    for name in ("httpx", "httpcore"):
+        logging.getLogger(name).setLevel(logging.WARNING)
     _install_global_error_hooks()
 
 

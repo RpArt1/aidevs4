@@ -130,8 +130,10 @@ def _execute_python(solver: "SolverAgent", args: dict) -> str:
         stderr = proc.stderr
         if len(stderr) > 4000:
             stderr = stderr[-4000:]
+        solver.record_execution_stderr(stderr)
         return json.dumps({"stdout": stdout, "stderr": stderr, "returncode": proc.returncode})
     except subprocess.TimeoutExpired:
+        solver.record_execution_stderr("")
         return json.dumps({"error": f"script timed out after {timeout}s"})
 
 

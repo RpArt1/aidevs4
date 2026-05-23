@@ -8,6 +8,8 @@ budget is exhausted.
 from __future__ import annotations
 
 import json
+import re
+from collections import deque
 from pathlib import Path
 from time import time
 from typing import Any
@@ -65,6 +67,9 @@ class SolverAgent(SuperAgentBase):
         self._final_result: dict[str, Any] | None = None
         self._script_counter: int = 0
         self._last_step: int = 0
+        # Rolling window of error fingerprints from recent execute_python calls.
+        # Used to detect "stuck in a loop" patterns (same error twice in a row).
+        self._stderr_window: deque[str] = deque(maxlen=3)
 
     def _system_prompt_basename(self) -> str:
         return "solver.md"
@@ -130,6 +135,7 @@ class SolverAgent(SuperAgentBase):
         if fatal:
             return self._on_fatal_tool(step)
 
+        self._maybe_inject_loop_reminder(messages)
         return None
 
     def _chat(self, messages: list[dict[str, Any]], tools: list[dict], step: int):
@@ -194,6 +200,87 @@ class SolverAgent(SuperAgentBase):
             step=step,
         ))
         return {"outcome": "error", "error_summary": message, "steps": step}
+
+    # ── Loop detection ─────────────────────────────────────────────────────
+
+    def record_execution_stderr(self, stderr: str) -> None:
+        """Called by the execute_python tool after each run to track errors.
+
+        Args:
+            stderr: The stderr string captured from the subprocess.
+        """
+        fingerprint = self._extract_error_fingerprint(stderr)
+        self._stderr_window.append(fingerprint or "")
+
+    @staticmethod
+    def _extract_error_fingerprint(stderr: str) -> str | None:
+        """Return a short, stable label for the dominant error in stderr.
+
+        Walks the stderr lines in reverse to find the last traceback
+        summary line (``ExceptionClass: message``). Falls back to the
+        first non-empty line so that non-traceback errors are still
+        tracked.
+
+        Args:
+            stderr: Raw stderr text from the subprocess.
+
+        Returns:
+            A fingerprint string, or None when stderr is empty/whitespace.
+        """
+        if not stderr.strip():
+            return None
+
+        # Python tracebacks end with "SomeClass: message" on the final line.
+        # Walk backwards to find the first such line (= the exception summary).
+        for line in reversed(stderr.splitlines()):
+            stripped = line.strip()
+            if not stripped:
+                continue
+            # Match "word.word.ClassName: ..." — must not start with whitespace
+            # (indented lines are code context, not the exception class).
+            m = re.match(r'^([\w][\w.]*)\s*:', stripped)
+            if m:
+                return m.group(1)
+
+        # No traceback-style line found; use first non-empty line as fallback.
+        for line in stderr.splitlines():
+            stripped = line.strip()
+            if stripped:
+                return stripped[:120]
+
+        return None
+
+    def _maybe_inject_loop_reminder(self, messages: list[dict[str, Any]]) -> None:
+        """Append a corrective user message when the same error repeats.
+
+        Checks the last two entries in the stderr window. If they share
+        the same non-empty fingerprint the solver is stuck, and a reminder
+        is injected so the LLM sees it before its next generation step.
+
+        Args:
+            messages: Mutable chat history. A ``role="user"`` reminder is
+                appended when a loop is detected.
+        """
+        window = list(self._stderr_window)
+        if len(window) < 2:
+            return
+
+        last = window[-1]
+        if not last or last != window[-2]:
+            return
+
+        reminder = (
+            f"IMPORTANT — you have failed with the same error ({last!r}) at least "
+            "twice in a row. Re-read the execution environment section of your system "
+            "prompt carefully before calling execute_python again. Common causes: "
+            "using openai<1.0 API syntax (openai.ChatCompletion.create does not exist "
+            "— use the v1 client pattern shown in the prompt), wrong import names, "
+            "missing env variables, or incorrect file paths. Change your approach."
+        )
+        messages.append({"role": "user", "content": reminder})
+        self.log.warning(
+            "loop-detection: injecting corrective reminder fingerprint=%r", last
+        )
 
     # ── Setup helpers ───────────────────────────────────────────────────────
 

@@ -19,6 +19,35 @@ Returns `{"outcome": "incorrect", "hint": "..."}` on failure — read the hint a
 - Environment variables available: `AIDEVS_API_KEY`, `AIDEVS_VERIFY_URL`, `OPENROUTER_API_KEY`, `PUBLIC_WEBHOOK_URL` (when needed), `WORKSPACE`
 - The `WORKSPACE` env var points to the per-run working directory — use it to save/load intermediate files
 
+
+- Python 3.11 in a Linux sandbox (no network restrictions, but no extra packages can be installed)
+- Each `execute_python` call runs as a **fresh subprocess**. Variables, imports, and in-memory
+  state from previous calls DO NOT survive. If you need to reuse data, write it to `${WORKSPACE}/<file>` and reload it.
+- DO NOT call `pip install`. The package set is fixed. Use what's listed below.
+- Available packages (already installed, pinned to the major versions shown):
+  - `openai>=1.0` (v1 client API only — `openai.ChatCompletion.create` and
+    `openai.Completion.create` DO NOT EXIST in this version)
+  - requests, httpx, pydantic, python-dotenv, fastapi, uvicorn, pillow, numpy,
+    pandas, beautifulsoup4
+
+## Calling an LLM (canonical pattern)
+All LLM calls MUST go through OpenRouter. Use this exact pattern:
+
+```python
+import os
+from openai import OpenAI
+client = OpenAI(
+    api_key=os.environ["OPENROUTER_API_KEY"],
+    base_url="https://openrouter.ai/api/v1",
+)
+resp = client.chat.completions.create(
+    model="openai/gpt-4o-mini",         # OpenRouter slug: provider/model
+    messages=[{"role": "user", "content": "..."}],
+)
+print(resp.choices[0].message.content)
+```
+
+
 ## Rules
 
 1. **Before every tool call, write one sentence explaining why** you are calling it. This is required.
@@ -27,6 +56,9 @@ Returns `{"outcome": "incorrect", "hint": "..."}` on failure — read the hint a
 4. If `submit_answer` returns a hint in the response, use it to correct your approach before retrying.
 5. Never fabricate a flag. The flag format is `FLG:...` and comes only from `submit_answer`.
 6. Keep scripts focused — one script per logical step is cleaner than one giant script.
+7. Persist every non-trivial intermediate result (parsed CSVs, filtered rows, LLM outputs) to ${WORKSPACE}/<step_name>.json or .parquet. Each new script must reload from disk — NEVER assume a previous variable still exists.
+8. Before writing a new script, if the previous script returned a non-zero returncode, your FIRST sentence must quote the exact exception class and message from stderr and explain what changed because of it.
+
 
 
 ## Subminssion instruction

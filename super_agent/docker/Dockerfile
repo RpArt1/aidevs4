@@ -28,7 +28,7 @@ RUN apt-get update \
 WORKDIR /app
 
 # Install Python deps first so this layer caches across code changes.
-RUN pip install openai python-dotenv requests dotenv fastapi uvicorn pillow pydantic numpy pandas beautifulsoup4 langfuse debugpy
+RUN pip install openai==2.38.0 python-dotenv requests dotenv fastapi uvicorn pillow pydantic numpy pandas beautifulsoup4 langfuse debugpy
 
 # Copy the whole repo. The super-agent reuses common/ at runtime, and the
 # solver's generated code is allowed to `import common` if it wants to.
