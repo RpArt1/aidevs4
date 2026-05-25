@@ -20,11 +20,11 @@ def subscribe_event_logger(emitter: AgentEventEmitter) -> None:
             case "agent.started":
                 logger.debug("[agent] agent.started   agent_id=%s", event.ctx.agent_id)
             case "agent.completed":
-                logger.debug("[agent] agent.completed   duration_ms=%.0f   result=%r", event.duration_ms, event.result)
+                logger.info("[agent] agent.completed   duration_ms=%.0f   result=%r", event.duration_ms, event.result)
             case "agent.error":
-                logger.debug("[agent] agent.error   error_type=%s   step=%s   msg=%s", event.error_type, event.step, event.message)
+                logger.warning("[agent] agent.error   error_type=%s   step=%s   msg=%s", event.error_type, event.step, event.message)
             case "agent.iteration_limit":
-                logger.debug("[agent] agent.iteration_limit   step=%s/%s", event.step, event.max_iterations)
+                logger.warning("[agent] agent.iteration_limit   step=%s/%s", event.step, event.max_iterations)
             case "generation.completed":
                 out = event.output or ""
                 logger.debug(
@@ -35,7 +35,7 @@ def subscribe_event_logger(emitter: AgentEventEmitter) -> None:
                 logger.debug("[tool]  tool.started   step=%s   tool=%s   call_id=%s", event.step, event.tool_name, event.call_id)
             case "tool.completed":
                 status = "ok" if event.success else "FAIL"
-                logger.debug("[tool]  tool.completed   step=%s   tool=%s   status=%s   duration_ms=%.0f", event.step, event.tool_name, status, event.duration_ms)
+                logger.info("[tool]  tool.completed   step=%s   tool=%s   status=%s   duration_ms=%.0f", event.step, event.tool_name, status, event.duration_ms)
             case _:
                 logger.debug("[event] %s", event.type)
 

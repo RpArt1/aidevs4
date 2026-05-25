@@ -12,6 +12,7 @@ import argparse
 import json
 import os
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Sequence
 from uuid import uuid4
@@ -191,7 +192,8 @@ def run_super_agent(args: argparse.Namespace, task_text: str) -> dict:
     Returns:
         Final result dictionary returned by `OrchestratorAgent.run`.
     """
-    run_id = str(uuid4())
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
+    run_id = f"{timestamp}_{str(uuid4())[:8]}"
     workspace = create_workspace(run_id)
     emitter, langfuse = build_emitter(enable_event_log=True)
     log = get_logger("super_agent.__main__")

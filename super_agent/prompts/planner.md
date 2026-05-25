@@ -32,6 +32,15 @@ Use `task_family` value exactly one of: `data_structured`, `tool_react`, `long_r
 - Use `hints` for invariants and gotchas the Solver must respect (e.g. field ordering, auth headers, retry behaviour).
 - If addressing a previous critique, do NOT silently repeat the mistake. Ensure the corrected logic is prominently featured in `steps` and `hints`.
 
+## HARD FILTERS vs. SEMANTIC FILTERS:
+
+When a step involves filtering or classifying records, you MUST distinguish between the two types:
+
+- **Hard filter** — the criterion maps directly to a stored field value. Use simple comparisons. Examples: `gender == 'M'`, `born between 1986–2006`, `city == 'Grudziądz'`. Specify the exact field name and value.
+- **Semantic filter** — the criterion involves a concept, category, industry, profession type, sentiment, or any idea that is NOT stored verbatim in the data (e.g. "works in the transport sector", "is a senior role", "relates to healthcare"). For these, you MUST explicitly state: **"Use LLM to classify whether [field] semantically belongs to [category]"**. Never describe a semantic criterion as a simple filter — doing so causes the Solver to apply incorrect string matching.
+
+Always put hard filters and semantic filters in **separate steps** with unambiguous language.
+
 ## Important rules
 
 - CRITICAL: If a URL or path contains a dummy placeholder (e.g., "tutaj-twój-klucz", "<YOUR_API_KEY>"), you MUST replace it with the correct template variable (e.g., "${AIDEVS_API_KEY}"). Never pass literal placeholders to the Solver.

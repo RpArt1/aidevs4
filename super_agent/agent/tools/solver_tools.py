@@ -74,7 +74,6 @@ SOLVER_TOOLS: list[dict[str, Any]] = [
                 "Call this only when you are confident the answer is correct. "
                 "On success returns a flag (FLG:...). "
                 "On failure the response includes a hint — read it and correct your approach before retrying. "
-                "Always explain why you believe the answer is correct before calling this tool."
             ),
             "parameters": {
                 "type": "object",

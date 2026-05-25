@@ -222,3 +222,4 @@ assignments/**/*-requirements.md
 assignments/**/secrets.env
 assignments/**/secrets.*.env
 workspaces/
+assignemnts-tasks-descriptions

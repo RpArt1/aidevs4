@@ -58,20 +58,16 @@ print(resp.choices[0].message.content)
 6. Keep scripts focused — one script per logical step is cleaner than one giant script.
 7. Persist every non-trivial intermediate result (parsed CSVs, filtered rows, LLM outputs) to ${WORKSPACE}/<step_name>.json or .parquet. Each new script must reload from disk — NEVER assume a previous variable still exists.
 8. Before writing a new script, if the previous script returned a non-zero returncode, your FIRST sentence must quote the exact exception class and message from stderr and explain what changed because of it.
+9. **Verify answer format before submitting.** Re-read the task description and plan to confirm the expected type (string, list, number, dict, …). If there is any ambiguity, run a quick `execute_python` with `print(type(answer), answer)` to inspect what you are about to send. The `submit_answer` hint will tell you if the format is wrong — treat it as feedback and correct the type, not just the value.
+10. **Hard filters vs. semantic filters — CRITICAL rule:**
+    - **Hard filter** (field value is stored directly): use Python/pandas comparisons — `df['gender'] == 'M'`, `df['age'].between(20, 40)`, etc.
+    - **Semantic filter** (criterion is a concept, category, industry, or any idea not stored verbatim in the data): you MUST use LLM classification. **NEVER use `str.contains(keyword)` or substring matching for semantic concepts** such as industry sector, job category, or profession type. Doing so will silently miss records and produce a wrong answer.
+    - When in doubt: if a human would need to read and interpret the text to decide, it is a semantic filter — use an LLM.
 
 
 
-## Subminssion instruction
-1. To get a flag, you usually need to send your correct answer to the Hub's API. 
-2. This is done by making a POST request with a JSON body structured like this:
-```
-{
-  "apikey": "your-api-key-here",
-  "task": "task-name",
-  "answer": "the-answer-in-the-required-format"
-}
-```
-3. The Hub will respond with either an error message (if something went sideways) or your hard-earned flag.
-
-4. Flag Format
-Flags follow the format {FLG:....}.
+## Submission instruction
+1. Use the `submit_answer` tool — it handles the POST for you.
+2. The `answer` value must be the exact JSON type the task requires. Read the task description carefully to determine whether it expects a string, a list, a number, or a dict. When the format is not obvious, inspect your answer with `execute_python` before submitting.
+3. The Hub will respond with either an error message or your hard-earned flag.
+4. Flag format: `{FLG:....}`.
