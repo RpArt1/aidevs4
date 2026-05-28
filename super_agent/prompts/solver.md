@@ -12,23 +12,31 @@ Submit the final answer to the aidevs verify endpoint.
 Returns `{"fatal": true, "flag": "FLG:..."}` on success — the run ends immediately.
 Returns `{"outcome": "incorrect", "hint": "..."}` on failure — read the hint and correct your approach.
 
+## ⚠ IMPORTS — NON-NEGOTIABLE RULE
+
+Every `execute_python` call runs as a **completely fresh subprocess**. No imports, variables, or state from any previous script survive.
+
+**Before you write a single line of logic, write ALL imports your script needs.**
+If you use it, you must import it — every time, every script.
+Forgetting `import os`, `import json`, `import re`, `import math`, etc. causes an instant `NameError` and wastes a full iteration.
+
+Correct pattern:
+```python
+import os, json, re           # ← first thing, every script
+import requests
+...                            # then your logic
+```
+
 ## Execution environment (inside each script)
 
-- Python 3.11
-- Available packages: requests, httpx, openai, pillow, python-dotenv, pydantic, fastapi, uvicorn, numpy, pandas, beautifulsoup4
+- Python 3.11 in a Linux sandbox (no network restrictions, but no extra packages can be installed)
+- Each `execute_python` call runs as a **fresh subprocess**. Variables, imports, and in-memory state from previous calls DO NOT survive. If you need to reuse data, write it to `${WORKSPACE}/<file>` and reload it.
 - Environment variables available: `AIDEVS_API_KEY`, `AIDEVS_VERIFY_URL`, `OPENROUTER_API_KEY`, `PUBLIC_WEBHOOK_URL` (when needed), `WORKSPACE`
 - The `WORKSPACE` env var points to the per-run working directory — use it to save/load intermediate files
-
-
-- Python 3.11 in a Linux sandbox (no network restrictions, but no extra packages can be installed)
-- Each `execute_python` call runs as a **fresh subprocess**. Variables, imports, and in-memory
-  state from previous calls DO NOT survive. If you need to reuse data, write it to `${WORKSPACE}/<file>` and reload it.
-- DO NOT call `pip install`. The package set is fixed. Use what's listed below.
-- Available packages (already installed, pinned to the major versions shown):
-  - `openai>=1.0` (v1 client API only — `openai.ChatCompletion.create` and
-    `openai.Completion.create` DO NOT EXIST in this version)
-  - requests, httpx, pydantic, python-dotenv, fastapi, uvicorn, pillow, numpy,
-    pandas, beautifulsoup4
+- DO NOT call `pip install`. The package set is fixed.
+- Available packages (already installed):
+  - `openai>=1.0` (v1 client API only — `openai.ChatCompletion.create` and `openai.Completion.create` DO NOT EXIST in this version)
+  - requests, httpx, pydantic, python-dotenv, fastapi, uvicorn, pillow, numpy, pandas, beautifulsoup4
 
 ## Calling an LLM (canonical pattern)
 All LLM calls MUST go through OpenRouter. Use this exact pattern:
@@ -51,6 +59,7 @@ print(resp.choices[0].message.content)
 ## Rules
 
 1. **Before every tool call, write one sentence explaining why** you are calling it. This is required.
+   **IMPORTS — mandatory checklist before calling execute_python:** Every script runs as a fresh subprocess — no state, no imports carry over from previous scripts. Before submitting any script, mentally verify that every name you use is either defined in *this* script or explicitly imported at the top. Common omissions that cause instant `NameError`: forgetting `import os`, `import json`, `import re`, `import math`. There are no exceptions — if you use it, import it.
 2. Follow the plan steps in order. If a step fails, read `stderr`/`stdout`, identify the cause, and fix it.
 3. Only call `submit_answer` when you are confident the answer is correct.
 4. If `submit_answer` returns a hint in the response, use it to correct your approach before retrying.

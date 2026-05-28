@@ -110,10 +110,20 @@ def make_solver_dispatcher(solver: "SolverAgent") -> ToolDispatcher:
 def _execute_python(solver: "SolverAgent", args: dict) -> str:
     code = str(args.get("code") or "")
     timeout = min(int(args.get("timeout") or 60), 120)
+    step = solver._last_step
 
     script_path = solver.workspace / f"script_{solver._script_counter}.py"
+    script_name = script_path.name
     solver._script_counter += 1
     script_path.write_text(code, encoding="utf-8")
+
+    solver.log.info(
+        "script.start  step=%d  script=%s  timeout=%ds  lines=%d",
+        step,
+        script_name,
+        timeout,
+        code.count("\n") + 1,
+    )
 
     try:
         proc = subprocess.run(
@@ -130,10 +140,46 @@ def _execute_python(solver: "SolverAgent", args: dict) -> str:
         if len(stderr) > 4000:
             stderr = stderr[-4000:]
         solver.record_execution_stderr(stderr)
+        _log_script_done(solver, step, script_name, proc.returncode, stdout, stderr)
         return json.dumps({"stdout": stdout, "stderr": stderr, "returncode": proc.returncode})
     except subprocess.TimeoutExpired:
         solver.record_execution_stderr("")
+        solver.log.warning(
+            "script.done   step=%d  script=%s  timed_out after=%ds",
+            step,
+            script_name,
+            timeout,
+        )
         return json.dumps({"error": f"script timed out after {timeout}s"})
+
+
+def _log_script_done(
+    solver: "SolverAgent",
+    step: int,
+    script_name: str,
+    returncode: int,
+    stdout: str,
+    stderr: str,
+) -> None:
+    """Emit completion logs so script runs are easy to correlate in app.log."""
+    solver.log.info(
+        "script.done   step=%d  script=%s  returncode=%d  stdout_bytes=%d  stderr_bytes=%d",
+        step,
+        script_name,
+        returncode,
+        len(stdout),
+        len(stderr),
+    )
+    if returncode == 0:
+        return
+    err_line = next((line for line in stderr.strip().splitlines() if line.strip()), "")
+    if err_line:
+        solver.log.warning(
+            "script.stderr  step=%d  script=%s  %s",
+            step,
+            script_name,
+            err_line[:300],
+        )
 
 
 def _submit_answer(solver: "SolverAgent", args: dict) -> str:
