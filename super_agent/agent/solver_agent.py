@@ -84,7 +84,7 @@ class SolverAgent(SuperAgentBase):
 
         try:
             plan = self._read_plan()
-            messages = self._initial_messages(plan)
+            messages = self.(plan)
             execute_tool = make_solver_dispatcher(self)
             result = self._loop(messages, SOLVER_TOOLS, execute_tool)
         except BudgetExceeded as exc:

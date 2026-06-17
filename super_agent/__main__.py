@@ -87,7 +87,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--model",
         default=os.getenv("SUPER_AGENT_MODEL", DEFAULT_MODEL),
-        help=f"OpenRouter model name to use. Defaults to {DEFAULT_MODEL}.",
+        help=f"OpenRouter model name for all agents unless overridden. Defaults to {DEFAULT_MODEL}.",
+    )
+    parser.add_argument(
+        "--planner-model",
+        default=os.getenv("SUPER_AGENT_PLANNER_MODEL"),
+        help="OpenRouter model name for PlannerAgent. Falls back to --model.",
+    )
+    parser.add_argument(
+        "--solver-model",
+        default=os.getenv("SUPER_AGENT_SOLVER_MODEL"),
+        help="OpenRouter model name for SolverAgent. Falls back to --model.",
     )
     parser.add_argument(
         "--session-id",
@@ -200,12 +210,18 @@ def run_super_agent(args: argparse.Namespace, task_text: str) -> dict:
 
     log.info("starting super-agent run_id=%s workspace=%s", run_id, workspace)
     try:
+        base_llm = LLMService(model=args.model)
+        planner_llm = LLMService(model=args.planner_model) if args.planner_model else None
+        solver_llm = LLMService(model=args.solver_model) if args.solver_model else None
+
         orchestrator = OrchestratorAgent(
             task_text=task_text,
             run_id=run_id,
             workspace=workspace,
             emitter=emitter,
-            llm=LLMService(model=args.model),
+            llm=base_llm,
+            planner_llm=planner_llm,
+            solver_llm=solver_llm,
             public_webhook_url=args.public_webhook_url,
             verify_task_name_override=args.verify_task_name_override,
             session_id=args.session_id,

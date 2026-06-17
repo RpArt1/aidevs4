@@ -85,6 +85,8 @@ class OrchestratorAgent(SuperAgentBase):
         workspace: Path,
         emitter: AgentEventEmitter,
         llm: LLMService,
+        planner_llm: LLMService | None = None,
+        solver_llm: LLMService | None = None,
         public_webhook_url: str | None = None,
         verify_task_name_override: str | None = None,
         agent_id: str = "orchestrator",
@@ -109,6 +111,8 @@ class OrchestratorAgent(SuperAgentBase):
         )
 
         self.task_text = task_text
+        self.planner_llm = planner_llm or llm
+        self.solver_llm = solver_llm or llm
         self.public_webhook_url = public_webhook_url
         self.verify_task_name_override = verify_task_name_override
         self.mock_solver = mock_solver
