@@ -32,18 +32,12 @@ TOOLS: list[dict[str, Any]] = [
             "name": "spawn_planner",
             "description": (
                 "Run the Planner sub-agent to create or revise a plan.json "
-                "artifact from the plain-text task."
+                "artifact from the plain-text task. The task text is provided "
+                "automatically from the run context — do NOT pass it."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "task_text": {
-                        "type": "string",
-                        "description": (
-                            "Plain-text task description to plan from. Usually "
-                            "the original task text from the user message."
-                        ),
-                    },
                     "critique": {
                         "type": "string",
                         "description": (
@@ -52,7 +46,7 @@ TOOLS: list[dict[str, Any]] = [
                         ),
                     },
                 },
-                "required": ["task_text"],
+                "required": [],
                 "additionalProperties": False,
             },
         },
@@ -148,7 +142,7 @@ def _spawn_planner(orchestrator: "OrchestratorAgent", args: dict) -> str:
     output_path = _plan_output_path(orchestrator.workspace, spawn_index)
 
     planner = PlannerAgent(
-        task_text=str(args.get("task_text") or orchestrator.task_text),
+        task_text=orchestrator.task_text,
         output_path=output_path,
         run_id=orchestrator.run_id,
         workspace=orchestrator.workspace,

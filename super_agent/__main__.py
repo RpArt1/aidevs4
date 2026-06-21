@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import sys
 from datetime import datetime
@@ -110,6 +111,12 @@ def build_parser() -> argparse.ArgumentParser:
             "Do not run SolverAgent; spawn_solver returns a mock FLG:MOCK success. "
             "Useful to exercise PlannerAgent / orchestrator without full solve flow."
         ),
+    )
+    parser.add_argument(
+        "--log-level",
+        default=os.getenv("LOG_LEVEL", "INFO"),
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        help="Logging verbosity. Use DEBUG to see planner/solver reasoning. Defaults to INFO.",
     )
     return parser
 
@@ -248,7 +255,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     task_text = resolve_task_text(args, parser)
 
-    setup_logging()
+    setup_logging(level=getattr(logging, args.log_level))
     result = run_super_agent(args, task_text)
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result.get("status") == "success" else 1

@@ -44,5 +44,6 @@ Always put hard filters and semantic filters in **separate steps** with unambigu
 
 ## Important rules
 
+- CRITICAL: The LLM API key env var is always `OPENROUTER_API_KEY`. Never put `OPENAI_API_KEY` in `required_env` or `preflight_checks` — it does not exist in this environment.
 - CRITICAL: If a URL or path contains a dummy placeholder (e.g., "tutaj-twój-klucz", "<YOUR_API_KEY>"), you MUST replace it with the correct template variable (e.g., "${AIDEVS_API_KEY}"). Never pass literal placeholders to the Solver.
 - CRITICAL: For `expected_output`, locate the JSON code block in the task text and mechanically copy its content. Do NOT paraphrase, translate, rename fields, or invent keys — reproduce what is literally written. Every field name, every nesting level, every value type must be identical to the source. If the task shows `[{"city": "London", "score": 42}]`, the output must be `[{"city": "London", "score": 42}]` — not `[{"miasto": "London", "wynik": 42}]` or any other reformulation. Never collapse an array-of-objects to a flat list of scalars.

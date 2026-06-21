@@ -77,7 +77,8 @@ for var in \
     LANGFUSE_HOST \
     SUPER_AGENT_WORKSPACES_DIR \
     TASK_TEXT \
-    TASK_FILE; do
+    TASK_FILE \
+    LOG_LEVEL; do
     if [[ -n "${!var:-}" ]]; then
         env_args+=(-e "${var}=${!var}")
     fi

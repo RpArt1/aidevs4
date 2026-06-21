@@ -40,8 +40,9 @@ PLAN_SCHEMA: dict[str, Any] = {
                 "type": "array",
                 "items": {"type": "string"},
                 "description": (
-                    "Names of environment variables the Solver's generated "
-                    "code will need (e.g. AIDEVS_API_KEY, PUBLIC_WEBHOOK_URL)."
+                    "Names of environment variables the Solver's generated code will need. "
+                    "Use OPENROUTER_API_KEY (never OPENAI_API_KEY) for LLM calls. "
+                    "Other common values: AIDEVS_API_KEY, AIDEVS_VERIFY_URL, PUBLIC_WEBHOOK_URL."
                 ),
             },
             "input_data": {

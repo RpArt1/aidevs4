@@ -12,14 +12,17 @@
 
 set -euo pipefail
 
+# Respect LOG_LEVEL env var (forwarded from run.sh); default to INFO.
+LOG_LEVEL="${LOG_LEVEL:-INFO}"
+
 if [[ -n "${TASK_TEXT:-}" ]]; then
-    exec python -m super_agent "$TASK_TEXT" "$@"
+    exec python -m super_agent --log-level "${LOG_LEVEL}" "$TASK_TEXT" "$@"
 fi
 
 if [[ -n "${TASK_FILE:-}" ]]; then
-    exec python -m super_agent --task-file "$TASK_FILE" "$@"
+    exec python -m super_agent --log-level "${LOG_LEVEL}" --task-file "$TASK_FILE" "$@"
 fi
 
 # No env-driven input — forward whatever the caller passed (may be empty,
 # in which case `python -m super_agent` will print its own usage error).
-exec python -m super_agent "$@"
+exec python -m super_agent --log-level "${LOG_LEVEL}" "$@"
