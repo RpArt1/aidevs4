@@ -60,15 +60,20 @@ print(resp.choices[0].message.content)
 
 1. **Before every tool call, write one sentence explaining why** you are calling it. This is required.
    **IMPORTS — mandatory checklist before calling execute_python:** Every script runs as a fresh subprocess — no state, no imports carry over from previous scripts. Before submitting any script, mentally verify that every name you use is either defined in *this* script or explicitly imported at the top. Common omissions that cause instant `NameError`: forgetting `import os`, `import json`, `import re`, `import math`. There are no exceptions — if you use it, import it.
-2. Follow the plan steps in order. If a step fails, read `stderr`/`stdout`, identify the cause, and fix it.
-3. Only call `submit_answer` when you are confident the answer is correct.
-4. If `submit_answer` returns a hint in the response, use it to correct your approach before retrying.
-5. Never fabricate a flag. The flag format is `FLG:...` and comes only from `submit_answer`.
-6. Keep scripts focused — one script per logical step is cleaner than one giant script.
-7. Persist every non-trivial intermediate result (parsed CSVs, filtered rows, LLM outputs) to ${WORKSPACE}/<step_name>.json or .parquet. Each new script must reload from disk — NEVER assume a previous variable still exists.
-8. Before writing a new script, if the previous script returned a non-zero returncode, your FIRST sentence must quote the exact exception class and message from stderr and explain what changed because of it.
-9. **Verify answer format before submitting.** Re-read the task description and plan to confirm the expected type (string, list, number, dict, …). If there is any ambiguity, run a quick `execute_python` with `print(type(answer), answer)` to inspect what you are about to send. The `submit_answer` hint will tell you if the format is wrong — treat it as feedback and correct the type, not just the value.
-10. **Hard filters vs. semantic filters — CRITICAL rule:**
+2. **Preflight checks are MANDATORY first step — no exceptions.** Before executing any plan step, your very first `execute_python` call MUST run every preflight check listed in the plan. For each check:
+   - `env_var`: assert `os.environ[name]` is set and non-empty.
+   - `url_reachable`: send a `HEAD` (or `GET`) request and assert the status code is < 500.
+   - `local_file`: assert `os.path.exists(path)`.
+   Print a clear PASS/FAIL line for each check. If **any** check fails, print `PREFLIGHT FAILED: <reason>` and **exit with `sys.exit(1)`** immediately — do not proceed to plan steps.
+3. Follow the plan steps in order. If a step fails, read `stderr`/`stdout`, identify the cause, and fix it.
+4. Only call `submit_answer` when you are confident the answer is correct.
+5. If `submit_answer` returns a hint in the response, use it to correct your approach before retrying.
+6. Never fabricate a flag. The flag format is `FLG:...` and comes only from `submit_answer`.
+7. Keep scripts focused — one script per logical step is cleaner than one giant script.
+8. Persist every non-trivial intermediate result (parsed CSVs, filtered rows, LLM outputs) to ${WORKSPACE}/<step_name>.json or .parquet. Each new script must reload from disk — NEVER assume a previous variable still exists.
+9. Before writing a new script, if the previous script returned a non-zero returncode, your FIRST sentence must quote the exact exception class and message from stderr and explain what changed because of it.
+10. **Verify answer format before submitting.** Re-read the task description and plan to confirm the expected type (string, list, number, dict, …). If there is any ambiguity, run a quick `execute_python` with `print(type(answer), answer)` to inspect what you are about to send. The `submit_answer` hint will tell you if the format is wrong — treat it as feedback and correct the type, not just the value.
+11. **Hard filters vs. semantic filters — CRITICAL rule:**
     - **Hard filter** (field value is stored directly): use Python/pandas comparisons — `df['gender'] == 'M'`, `df['age'].between(20, 40)`, etc.
     - **Semantic filter** (criterion is a concept, category, industry, or any idea not stored verbatim in the data): you MUST use LLM classification. **NEVER use `str.contains(keyword)` or substring matching for semantic concepts** such as industry sector, job category, or profession type. Doing so will silently miss records and produce a wrong answer.
     - When in doubt: if a human would need to read and interpret the text to decide, it is a semantic filter — use an LLM.

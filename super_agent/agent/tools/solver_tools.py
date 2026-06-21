@@ -11,6 +11,7 @@ import os
 import re
 import subprocess
 import sys
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable
 import debugpy
 
@@ -125,6 +126,8 @@ def _execute_python(solver: "SolverAgent", args: dict) -> str:
         code.count("\n") + 1,
     )
 
+    log_path = script_path.with_suffix(".log")
+
     try:
         proc = subprocess.run(
             [sys.executable, str(script_path)],
@@ -141,6 +144,7 @@ def _execute_python(solver: "SolverAgent", args: dict) -> str:
             stderr = stderr[-4000:]
         solver.record_execution_stderr(stderr)
         _log_script_done(solver, step, script_name, proc.returncode, stdout, stderr)
+        _write_script_log(log_path, stdout=stdout, stderr=stderr, returncode=proc.returncode)
         return json.dumps({"stdout": stdout, "stderr": stderr, "returncode": proc.returncode})
     except subprocess.TimeoutExpired:
         solver.record_execution_stderr("")
@@ -150,7 +154,38 @@ def _execute_python(solver: "SolverAgent", args: dict) -> str:
             script_name,
             timeout,
         )
+        _write_script_log(log_path, error=f"script timed out after {timeout}s")
         return json.dumps({"error": f"script timed out after {timeout}s"})
+
+
+def _write_script_log(
+    log_path: Path,
+    *,
+    stdout: str = "",
+    stderr: str = "",
+    returncode: int | None = None,
+    error: str | None = None,
+) -> None:
+    """Write a human-readable .log file next to the executed script.
+
+    Args:
+        log_path: Destination path for the log file (e.g. script_0.log).
+        stdout: Captured standard output of the script.
+        stderr: Captured standard error of the script.
+        returncode: Process exit code, or None when execution never finished.
+        error: High-level error message (e.g. timeout) when no returncode is available.
+    """
+    lines: list[str] = []
+
+    if error is not None:
+        lines += [f"ERROR: {error}", ""]
+    else:
+        lines += [f"returncode: {returncode}", ""]
+
+    lines += ["=== STDOUT ===", stdout or "(empty)", ""]
+    lines += ["=== STDERR ===", stderr or "(empty)", ""]
+
+    log_path.write_text("\n".join(lines), encoding="utf-8")
 
 
 def _log_script_done(

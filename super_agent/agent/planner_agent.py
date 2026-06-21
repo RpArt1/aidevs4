@@ -15,10 +15,10 @@ Why a separate agent at all?
     * Independently swappable for a stronger/cheaper model later without
       touching the Solver loop.
 
-The output schema mirrors ``super_agent/prompts/planner.md`` and the v2 design
-note (``goal`` / ``task_family`` / ``verify_task_name`` /
-``extracted_resources`` / ``required_env`` / ``input_data`` / ``expected_output``
-/ ``steps`` / ``hints`` / ``success_check``).
+The output schema mirrors ``super_agent/prompts/planner.md`` and PLAN_SCHEMA
+(``goal`` / ``task_family`` / ``verify_task_name`` / ``required_env`` /
+``input_data`` / ``expected_output`` / ``preflight_checks`` / ``steps`` /
+``success_check``).
 """
 
 from __future__ import annotations
@@ -262,11 +262,14 @@ class PlannerAgent(SuperAgentBase):
         against trivially broken plans the schema can't express:
 
         Raises:
-            ValueError: When ``steps`` is empty (a plan with no steps is
-                useless to the Solver) or when ``verify_task_name`` is blank.
+            ValueError: When ``steps`` is empty, when any step has a blank
+                ``action``, or when ``verify_task_name`` is blank.
         """
         if not plan.get("steps"):
             raise ValueError("plan.steps must not be empty")
+        for i, step in enumerate(plan["steps"]):
+            if not isinstance(step, dict) or not step.get("action", "").strip():
+                raise ValueError(f"plan.steps[{i}].action must not be blank")
         if not plan.get("verify_task_name", "").strip():
             raise ValueError("plan.verify_task_name must not be blank")
 
@@ -291,7 +294,7 @@ class PlannerAgent(SuperAgentBase):
     def _build_summary(self, plan: dict[str, Any], plan_path: Path) -> dict[str, Any]:
         """Build the compact dict returned to the orchestrator's dispatcher.
 
-        Deliberately omits ``steps``/``hints``/``input_data``/``extracted_resources``/
+        Deliberately omits ``steps``/``preflight_checks``/``input_data``/
         ``expected_output``/``success_check``:
         those live on disk in ``plan.json`` and are read by the Solver, not by
         the Orchestrator. Keeping the orchestrator's context lean is the whole

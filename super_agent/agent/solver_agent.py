@@ -84,7 +84,7 @@ class SolverAgent(SuperAgentBase):
 
         try:
             plan = self._read_plan()
-            messages = self.(plan)
+            messages = self._initial_messages(plan)
             execute_tool = make_solver_dispatcher(self)
             result = self._loop(messages, SOLVER_TOOLS, execute_tool)
         except BudgetExceeded as exc:
@@ -307,21 +307,6 @@ class SolverAgent(SuperAgentBase):
             parts.append("**Required env vars**: " + ", ".join(plan["required_env"]))
             parts.append("")
 
-        resources = plan.get("extracted_resources")
-        if isinstance(resources, dict) and any(resources.get(k) for k in (
-            "urls", "exact_strings", "expected_formats",
-        )):
-            parts.append("**Extracted resources**:")
-            for label, key in (
-                ("URLs", "urls"),
-                ("Exact strings", "exact_strings"),
-                ("Expected formats", "expected_formats"),
-            ):
-                vals = resources.get(key) if isinstance(resources.get(key), list) else []
-                for entry in vals:
-                    parts.append(f"  - [{label}] {entry}")
-            parts.append("")
-
         if plan.get("input_data"):
             parts.append("**Input data**:")
             for item in plan["input_data"]:
@@ -338,16 +323,24 @@ class SolverAgent(SuperAgentBase):
             parts.append(f"  {plan['expected_output']}")
             parts.append("")
 
+        if plan.get("preflight_checks"):
+            parts.append("**Preflight checks (run FIRST; abort if any fail)**:")
+            for chk in plan["preflight_checks"]:
+                check_type = chk.get("check_type", "")
+                target = chk.get("target", "")
+                description = chk.get("description", "")
+                parts.append(f"  - ({check_type}) {target}: {description}")
+            parts.append("")
+
         parts.append("**Steps**:")
         for i, step in enumerate(plan.get("steps", []), 1):
-            parts.append(f"  {i}. {step}")
+            if isinstance(step, dict):
+                action = step.get("action", "")
+                artifact = step.get("output_artifact", "none")
+                parts.append(f"  {i}. {action}  -> output: {artifact}")
+            else:
+                parts.append(f"  {i}. {step}")
         parts.append("")
-
-        if plan.get("hints"):
-            parts.append("**Hints**:")
-            for hint in plan["hints"]:
-                parts.append(f"  - {hint}")
-            parts.append("")
 
         if plan.get("success_check"):
             parts.append(f"**Success check**: {plan['success_check']}")

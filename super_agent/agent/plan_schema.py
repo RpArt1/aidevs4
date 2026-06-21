@@ -78,15 +78,64 @@ PLAN_SCHEMA: dict[str, Any] = {
                     "(from the task example), so the Solver does not guess."
                 ),
             },
+            "preflight_checks": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "check_type": {
+                            "type": "string",
+                            "enum": ["env_var", "url_reachable", "local_file"],
+                            "description": "Category of the check.",
+                        },
+                        "target": {
+                            "type": "string",
+                            "description": "The var name, URL, or file path to verify.",
+                        },
+                        "description": {
+                            "type": "string",
+                            "description": "Why this resource is mandatory for the task.",
+                        },
+                    },
+                    "required": ["check_type", "target", "description"],
+                    "additionalProperties": False,
+                },
+                "description": (
+                    "Access checks the Solver MUST run first. Each entry maps to a "
+                    "required_env var (env_var), input_data URL (url_reachable), or "
+                    "local file (local_file). If any check fails the whole run aborts."
+                ),
+            },
             "steps": {
                 "type": "array",
-                "items": {"type": "string"},
-                "description": "Natural-language step-by-step approach for the Solver.",
-            },
-            "hints": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": "Gotchas / invariants the Solver must respect.",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "action": {
+                            "type": "string",
+                            "description": (
+                                "Specific, verb-led description of what to do and "
+                                "broadly how (e.g. 'Download the CSV from input_data[0] "
+                                "and parse it with pandas')."
+                            ),
+                        },
+                        "output_artifact": {
+                            "type": "string",
+                            "description": (
+                                "Workspace-relative filename this step writes "
+                                "(e.g. 'people_raw.csv'), or 'none' for steps "
+                                "that produce no file (e.g. final submission)."
+                            ),
+                        },
+                    },
+                    "required": ["action", "output_artifact"],
+                    "additionalProperties": False,
+                },
+                "description": (
+                    "Ordered execution plan for the Solver. Each step must declare "
+                    "what it does (action) and what file it writes (output_artifact) "
+                    "so data flow between steps is explicit."
+                ),
             },
             "success_check": {
                 "type": "string",
@@ -100,8 +149,8 @@ PLAN_SCHEMA: dict[str, Any] = {
             "required_env",
             "input_data",
             "expected_output",
+            "preflight_checks",
             "steps",
-            "hints",
             "success_check",
         ],
         "additionalProperties": False,
