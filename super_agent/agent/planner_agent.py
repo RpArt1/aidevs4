@@ -41,6 +41,16 @@ from common.events import (
 from .agent_base import SuperAgentBase
 from .plan_schema import PLAN_SCHEMA
 
+# Hardcoded example values for fields where the description-as-placeholder
+# pattern would mislead the LLM into generating/translating instead of
+# extracting literally from the task text.
+_FIELD_EXAMPLES: dict[str, Any] = {
+    # A clearly-labelled placeholder — not fake JSON — so the LLM understands
+    # this field must be a compact JSON string extracted verbatim from the
+    # task's code block, not invented or modelled on this example.
+    "expected_output": "<copy the answer JSON code block from the task here verbatim>",
+}
+
 
 # Single-shot agent — these caps mostly exist to satisfy the base class
 # contract and to backstop a stuck LLM call.
@@ -111,7 +121,18 @@ class PlannerAgent(SuperAgentBase):
 
     def _transform_system_prompt(self, raw: str) -> str:
         """Inject a generated schema example so the prompt never drifts from PLAN_SCHEMA."""
-        return raw.replace("{SCHEMA_EXAMPLE}", self._render_schema_example())
+        schema_example = self._render_schema_example()
+        self.log.debug(
+            "[planner] _render_schema_example output:\n%s",
+            schema_example,
+        )
+        result = raw.replace("{SCHEMA_EXAMPLE}", schema_example)
+        self.log.debug(
+            "[planner] system prompt after {SCHEMA_EXAMPLE} injection (len=%d):\n%s",
+            len(result),
+            result,
+        )
+        return result
 
     @staticmethod
     def _render_schema_example() -> str:
@@ -142,7 +163,10 @@ class PlannerAgent(SuperAgentBase):
 
         top = PLAN_SCHEMA["schema"]
         required_keys = top.get("required", list(top["properties"]))
-        example = {k: example_for(top["properties"][k]) for k in required_keys}
+        example = {
+            k: _FIELD_EXAMPLES[k] if k in _FIELD_EXAMPLES else example_for(top["properties"][k])
+            for k in required_keys
+        }
         return json.dumps(example, indent=2, ensure_ascii=False)
 
     # ── Public entry point ──────────────────────────────────────────────────
@@ -192,6 +216,12 @@ class PlannerAgent(SuperAgentBase):
         user_message = self._build_user_message()
         messages = [{"role": "user", "content": user_message}]
 
+        self.log.debug(
+            "[planner] → LLM  system_prompt(len=%d)  user_message(len=%d)",
+            len(system_prompt),
+            len(user_message),
+        )
+
         # Emit step=1 so the event stream stays consistent with multi-step
         # agents (Orchestrator, Solver) even though we only ever take one.
         step = 1
@@ -200,6 +230,10 @@ class PlannerAgent(SuperAgentBase):
             messages=messages,
             schema=PLAN_SCHEMA,
             system_prompt=system_prompt,
+        )
+        self.log.debug(
+            "[planner] ← LLM  expected_output=%r",
+            plan.get("expected_output"),
         )
         duration_ms = (time() - t0) * 1000
 
@@ -250,7 +284,13 @@ class PlannerAgent(SuperAgentBase):
             "# Instruction",
             "Produce the plan JSON now, conforming exactly to the schema.",
         ]
-        return "\n".join(parts)
+        user_message = "\n".join(parts)
+        self.log.debug(
+            "[planner] user message (len=%d):\n%s",
+            len(user_message),
+            user_message,
+        )
+        return user_message
 
     # ── Plan validation ────────────────────────────────────────────────────
 

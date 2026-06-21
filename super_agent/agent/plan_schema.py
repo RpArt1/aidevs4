@@ -74,8 +74,10 @@ PLAN_SCHEMA: dict[str, Any] = {
             "expected_output": {
                 "type": "string",
                 "description": (
-                    "Expected JSON or structure for the verify POST body / answer field "
-                    "(from the task example), so the Solver does not guess."
+                    "Extract the complete answer JSON example directly from the task text's "
+                    "code block — every nested field, every key name, exactly as written. "
+                    "Do NOT translate, rename, simplify, or invent any part of the structure. "
+                    "Encode the extracted object as a compact JSON string."
                 ),
             },
             "preflight_checks": {
