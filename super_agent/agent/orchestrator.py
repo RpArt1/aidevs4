@@ -61,7 +61,13 @@ plan; returns outcome: "flag", "error", or "max_iter".
 1. If no plan exists yet, call spawn_planner with no arguments.
 2. After a plan, call spawn_solver(plan_path).
 3. On solver outcome="flag", call finish(status="success", flag=<flag>) and stop.
-4. On solver outcome="error" or "max_iter", read the returned error_summary and \
+4. On solver outcome="preflight_failed" (unrecoverable=true in the result): \
+a required local file or environment variable was absent before any code ran. \
+Spawning the solver again with different feedback CANNOT fix this — no amount of \
+code changes can conjure a file that does not exist on disk. Do NOT attempt to \
+work around it by telling the solver to reconstruct data from memory. \
+Call finish(status="give_up", reason=<error_summary from result>) immediately.
+5. On solver outcome="error" or "max_iter", read the returned error_summary and \
 decide:
    - Bad plan (wrong verify_task_name, missing step, wrong task_family) -> \
 spawn_planner again with a crisp critique citing the specific defect.
@@ -69,7 +75,7 @@ spawn_planner again with a crisp critique citing the specific defect.
 spawn_solver again passing a short feedback string that points at the fix.
    - Out of budget or repeated identical failures -> finish(status="give_up", \
 reason=...).
-5. Respect your spawn budgets. The dispatcher will refuse spawns past the caps.
+6. Respect your spawn budgets. The dispatcher will refuse spawns past the caps.
 
 Be concise. Do not narrate; act through tool calls.\
 """

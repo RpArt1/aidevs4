@@ -205,6 +205,15 @@ def _spawn_solver(orchestrator: "OrchestratorAgent", args: dict) -> str:
     result = solver.run()
     result["spawn_index"] = spawn_index
     orchestrator.solver_runs.append(result)
+
+    if result.get("outcome") == "preflight_failed":
+        result["unrecoverable"] = True
+        result["hint"] = (
+            "A required local file or environment variable was missing before any "
+            "code ran. Retrying the solver with different feedback CANNOT fix this — "
+            "the resource must be supplied externally. Call finish(status='give_up') now."
+        )
+
     return _json(result)
 
 

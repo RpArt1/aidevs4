@@ -53,7 +53,7 @@ import requests
         base_url="https://openrouter.ai/api/v1",
     )
     resp = client.chat.completions.create(
-        model="openai/gpt-4o-mini",         # OpenRouter slug: provider/model
+        model="google/gemini-3-flash-preview",         # OpenRouter slug: provider/model
         messages=[{"role": "user", "content": "..."}],
     )
     response_text = resp.choices[0].message.content
@@ -69,18 +69,24 @@ import requests
 1. **Before every tool call, write one sentence explaining why** you are calling it. This is required.
    **IMPORTS — mandatory checklist before calling execute_python:** Every script runs as a fresh subprocess — no state, no imports carry over from previous scripts. Before submitting any script, mentally verify that every name you use is either defined in *this* script or explicitly imported at the top. Common omissions that cause instant `NameError`: forgetting `import os`, `import json`, `import re`, `import math`. There are no exceptions — if you use it, import it.
    **LOGGING — mandatory checklist:** `import logging` + `basicConfig` boilerplate must be at the top of every script. Log raw LLM responses (`log.debug`). Never swallow exceptions silently — always `log.error(..., exc_info=True)` first.
-2. **Preflight checks are MANDATORY first step — no exceptions.** Before executing any plan step, your very first `execute_python` call MUST run every preflight check listed in the plan. For each check:
+2. **One script per plan step — MANDATORY.** Each plan step MUST be its own `execute_python` call. NEVER combine multiple plan steps into one script. A script that does "fetch data, filter it, call LLM, and submit" in one call is always wrong — split it into focused, single-purpose scripts.
+3. **Preflight checks are MANDATORY first step — no exceptions.** Before executing any plan step, your very first `execute_python` call MUST run every preflight check listed in the plan. For each check:
    - `env_var`: assert `os.environ[name]` is set and non-empty.
    - `url_reachable`: send a `HEAD` (or `GET`) request and assert the status code is < 500.
-   - `local_file`: assert `os.path.exists(path)`.
+   - `local_file`: resolve the full path as `os.path.join(os.environ["WORKSPACE"], path)` first, then assert `os.path.exists(full_path)`. Never check a bare relative path — scripts run in an arbitrary CWD, not the workspace.
    Print a clear PASS/FAIL line for each check. If **any** check fails, print `PREFLIGHT FAILED: <reason>` and **exit with `sys.exit(1)`** immediately — do not proceed to plan steps.
-3. Follow the plan steps in order. If a step fails, read `stderr`/`stdout`, identify the cause, and fix it.
-4. Only call `submit_answer` when you are confident the answer is correct.
-5. If `submit_answer` returns a hint in the response, use it to correct your approach before retrying.
-6. Never fabricate a flag. The flag format is `FLG:...` and comes only from `submit_answer`.
-7. Keep scripts focused — one script per logical step is cleaner than one giant script.
-8. Persist every non-trivial intermediate result (parsed CSVs, filtered rows, LLM outputs) to ${WORKSPACE}/<step_name>.json or .parquet. Each new script must reload from disk — NEVER assume a previous variable still exists.
-9. Before writing a new script, if the previous script returned a non-zero returncode, your FIRST sentence must quote the exact exception class and message from stderr and explain what changed because of it.
+   ⛔ **FORBIDDEN — these patterns will cause a fabricated, wrong answer:**
+   - Printing `PREFLIGHT WARNING` and continuing.
+   - Catching the missing-file/missing-env case and falling back to hardcoded data.
+   - Skipping the `sys.exit(1)` when a check fails.
+   - Assuming you know from memory what a missing file contains.
+   The orchestrator detects `PREFLIGHT FAILED:` and terminates the run immediately. There is no "graceful degradation" — a missing required resource means the run must stop so the user can supply the data.
+4. Follow the plan steps in order, one `execute_python` call per step. If a step fails, read `stderr`/`stdout`, identify the cause, fix it, and re-run that step's script — do NOT combine it with later steps.
+5. Only call `submit_answer` when you are confident the answer is correct.
+6. If `submit_answer` returns a hint in the response, use it to correct your approach before retrying.
+7. Never fabricate a flag or mock anything. The flag format is `FLG:...` and comes only from `submit_answer`.
+8. Persist every non-trivial intermediate result (parsed CSVs, filtered rows, LLM outputs) to `${WORKSPACE}/<step_name>.json` or `.parquet`. Every subsequent script must reload from disk — NEVER assume a previous variable still exists.
+9. When the previous script returned a non-zero returncode, your FIRST sentence must quote the exact exception class and message from stderr and explain what you changed.
 10. **Verify answer format before submitting.** Re-read the task description and plan to confirm the expected type (string, list, number, dict, …). If there is any ambiguity, run a quick `execute_python` with `print(type(answer), answer)` to inspect what you are about to send. The `submit_answer` hint will tell you if the format is wrong — treat it as feedback and correct the type, not just the value.
 11. **Hard filters vs. semantic filters — CRITICAL rule:**
     - **Hard filter** (field value is stored directly): use Python/pandas comparisons — `df['gender'] == 'M'`, `df['age'].between(20, 40)`, etc.
