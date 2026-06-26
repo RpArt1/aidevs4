@@ -37,10 +37,21 @@ Use `task_family` value exactly one of: `data_structured`, `tool_react`, `long_r
 
 When a step involves filtering or classifying records, you MUST distinguish between the two types:
 
-- **Hard filter** — the criterion maps directly to a stored field value. Use simple comparisons. Examples: `gender == 'M'`, `born between 1986–2006`, `city == 'Grudziądz'`. Specify the exact field name and value.
+- **Hard filter** — the criterion maps directly to a stored field value. Use simple comparisons. Examples: `gender == 'M'`, `age between 20–40`, `status == 'active'`. Specify the exact field name and value from the task data.
 - **Semantic filter** — the criterion involves a concept, category, industry, profession type, sentiment, or any idea that is NOT stored verbatim in the data (e.g. "works in the transport sector", "is a senior role", "relates to healthcare"). For these, you MUST explicitly state: **"Use LLM to classify whether [field] semantically belongs to [category]"**. Never describe a semantic criterion as a simple filter — doing so causes the Solver to apply incorrect string matching.
 
 Always put hard filters and semantic filters in **separate steps** with unambiguous language.
+
+## Embedding task-provided data (inline_files)
+
+If the task description contains data the Solver will need (e.g. a JSON array of records, a list of items), you MUST embed it in `inline_files` rather than expecting it to already exist on disk.
+
+For each such dataset:
+1. Add an entry to `inline_files`: set `filename` to a descriptive workspace-relative name derived from what the data represents (e.g. `input_records.json`, `reference_list.json`) and `content` to the data serialized as a compact JSON string.
+2. Add a matching `input_data` entry with `source_type: "local_file"` and `location` equal to the same filename.
+3. Add a matching `preflight_checks` entry with `check_type: "local_file"` and `target` equal to the same plain filename (no path prefix — the Solver expands it against `WORKSPACE` at runtime).
+
+The planner agent writes these files to the workspace before the solver starts, so the preflight check passes. Never reference a `local_file` that is not reachable via a URL unless you also include its full content in `inline_files`.
 
 ## Important rules
 

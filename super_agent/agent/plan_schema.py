@@ -140,6 +140,38 @@ PLAN_SCHEMA: dict[str, Any] = {
                     "so data flow between steps is explicit."
                 ),
             },
+            "inline_files": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "filename": {
+                            "type": "string",
+                            "description": (
+                                "Workspace-relative filename the Solver will read "
+                                "(e.g. 'input_records.json'). Must match the path "
+                                "used in the corresponding input_data local_file entry."
+                            ),
+                        },
+                        "content": {
+                            "type": "string",
+                            "description": (
+                                "Full file content as a string. For JSON data, "
+                                "serialize the object or array to a compact JSON string."
+                            ),
+                        },
+                    },
+                    "required": ["filename", "content"],
+                    "additionalProperties": False,
+                },
+                "description": (
+                    "Data already present in the task description that the Solver "
+                    "needs as a local file. The planner agent writes each entry to "
+                    "WORKSPACE/<filename> before the solver starts, so preflight "
+                    "local_file checks pass. Use an empty array when no inline "
+                    "data is needed."
+                ),
+            },
             "success_check": {
                 "type": "string",
                 "description": "What the final submission response should look like.",
@@ -153,6 +185,7 @@ PLAN_SCHEMA: dict[str, Any] = {
             "input_data",
             "expected_output",
             "preflight_checks",
+            "inline_files",
             "steps",
             "success_check",
         ],

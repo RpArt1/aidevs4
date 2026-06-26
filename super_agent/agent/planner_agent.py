@@ -316,7 +316,12 @@ class PlannerAgent(SuperAgentBase):
     # ── Persistence ────────────────────────────────────────────────────────
 
     def _write_plan(self, plan: dict[str, Any]) -> Path:
-        """Write the validated plan to ``self.output_path`` and return it.
+        """Write the validated plan and any inline files to the workspace.
+
+        Inline files (``plan['inline_files']``) contain data that was embedded
+        in the task description. They are written to the workspace now so that
+        the solver's preflight ``local_file`` checks pass without any network
+        call or external dependency.
 
         Creates parent directories as needed so the orchestrator dispatcher
         can pass a path inside a per-run workspace without pre-creating it.
@@ -327,7 +332,26 @@ class PlannerAgent(SuperAgentBase):
             encoding="utf-8",
         )
         self.log.info("planner wrote plan to %s", self.output_path)
+        self._write_inline_files(plan)
         return self.output_path
+
+    def _write_inline_files(self, plan: dict[str, Any]) -> None:
+        """Write each ``inline_files`` entry to the workspace directory.
+
+        Args:
+            plan: The validated plan dict; ``inline_files`` may be absent or
+                empty for tasks that have no embedded data.
+        """
+        for entry in plan.get("inline_files") or []:
+            filename = (entry.get("filename") or "").strip()
+            content = entry.get("content") or ""
+            if not filename:
+                self.log.warning("inline_files entry missing filename; skipping")
+                continue
+            dest = self.workspace / filename
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_text(content, encoding="utf-8")
+            self.log.info("planner wrote inline file %s (%d bytes)", dest, len(content))
 
     # ── Result shaping ─────────────────────────────────────────────────────
 

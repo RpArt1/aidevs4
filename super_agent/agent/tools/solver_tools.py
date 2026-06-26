@@ -145,6 +145,11 @@ def _execute_python(solver: "SolverAgent", args: dict) -> str:
         solver.record_execution_stderr(stderr)
         _log_script_done(solver, step, script_name, proc.returncode, stdout, stderr)
         _write_script_log(log_path, stdout=stdout, stderr=stderr, returncode=proc.returncode)
+
+        preflight_result = _check_preflight_sentinel(solver, stdout)
+        if preflight_result is not None:
+            return preflight_result
+
         return json.dumps({"stdout": stdout, "stderr": stderr, "returncode": proc.returncode})
     except subprocess.TimeoutExpired:
         solver.record_execution_stderr("")
@@ -156,6 +161,38 @@ def _execute_python(solver: "SolverAgent", args: dict) -> str:
         )
         _write_script_log(log_path, error=f"script timed out after {timeout}s")
         return json.dumps({"error": f"script timed out after {timeout}s"})
+
+
+def _check_preflight_sentinel(solver: "SolverAgent", stdout: str) -> str | None:
+    """Scan stdout for a PREFLIGHT FAILED sentinel and hard-stop the run if found.
+
+    The solver prompt instructs the LLM to print ``PREFLIGHT FAILED: <reason>``
+    and call ``sys.exit(1)`` when any preflight check fails.  This function
+    provides a mechanical second layer of enforcement: even if the LLM forgets
+    ``sys.exit(1)``, any ``PREFLIGHT FAILED:`` line in stdout terminates the run
+    immediately so the solver cannot silently continue with fabricated data.
+
+    Args:
+        solver: The running SolverAgent instance.
+        stdout: Captured standard output from the just-executed script.
+
+    Returns:
+        A fatal JSON string when the sentinel is found, otherwise None.
+    """
+    for line in stdout.splitlines():
+        if "PREFLIGHT FAILED:" in line:
+            reason = line.split("PREFLIGHT FAILED:", 1)[1].strip()
+            solver.log.error("preflight.failed  reason=%s", reason)
+            solver._final_result = {
+                "outcome": "preflight_failed",
+                "error_summary": f"Preflight check failed: {reason}",
+            }
+            return json.dumps({
+                "fatal": True,
+                "outcome": "preflight_failed",
+                "reason": reason,
+            })
+    return None
 
 
 def _write_script_log(
