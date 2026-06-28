@@ -31,7 +31,7 @@ import requests
 
 - Python 3.11 in a Linux sandbox (no network restrictions, but no extra packages can be installed)
 - Each `execute_python` call runs as a **fresh subprocess**. Variables, imports, and in-memory state from previous calls DO NOT survive. If you need to reuse data, write it to `${WORKSPACE}/<file>` and reload it.
-- Environment variables available: `AIDEVS_API_KEY`, `AIDEVS_VERIFY_URL`, `OPENROUTER_API_KEY`, `PUBLIC_WEBHOOK_URL` (when needed), `WORKSPACE`
+- Environment variables available: `AIDEVS_API_KEY`, `AIDEVS_VERIFY_URL`, `OPENROUTER_API_KEY`, `OPENROUTER_MODEL` (the pre-validated OpenRouter model slug to use in all LLM calls), `PUBLIC_WEBHOOK_URL` (when needed), `WORKSPACE`
 - The `WORKSPACE` env var points to the per-run working directory — use it to save/load intermediate files
 - DO NOT call `pip install`. The package set is fixed.
 - Available packages (already installed):
@@ -53,7 +53,7 @@ import requests
         base_url="https://openrouter.ai/api/v1",
     )
     resp = client.chat.completions.create(
-        model="google/gemini-3-flash-preview",         # OpenRouter slug: provider/model
+        model=os.environ["OPENROUTER_MODEL"],           # validated slug injected at run time
         messages=[{"role": "user", "content": "..."}],
     )
     response_text = resp.choices[0].message.content
@@ -92,6 +92,17 @@ import requests
     - **Hard filter** (field value is stored directly): use Python/pandas comparisons — `df['gender'] == 'M'`, `df['age'].between(20, 40)`, etc.
     - **Semantic filter** (criterion is a concept, category, industry, or any idea not stored verbatim in the data): you MUST use LLM classification. **NEVER use `str.contains(keyword)` or substring matching for semantic concepts** such as industry sector, job category, or profession type. Doing so will silently miss records and produce a wrong answer.
     - When in doubt: if a human would need to read and interpret the text to decide, it is a semantic filter — use an LLM.
+12. **Observe data structure before processing — MANDATORY.** After saving fetched data to the workspace and after loading any saved file back from disk, print a structural preview in the same script before any field access:
+    ```python
+    print(f"[preview] type={type(data).__name__}")
+    if isinstance(data, dict):
+        print(f"[preview] keys={sorted(data.keys())}")
+    elif isinstance(data, list):
+        print(f"[preview] len={len(data)}  data[0]={data[0]!r}")
+    else:
+        print(f"[preview] repr={repr(data)[:200]}")
+    ```
+    Never skip this because the format seems obvious or is documented. Read your own stdout before writing the next script — the preview tells you whether to call `.get()`, `json.loads()`, index into a list, or adapt the approach. This prevents `AttributeError: 'str' object has no attribute 'get'` and the entire class of wrong-type crashes.
 
 
 
