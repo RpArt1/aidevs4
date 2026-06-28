@@ -275,7 +275,9 @@ class SolverAgent(SuperAgentBase):
             "prompt carefully before calling execute_python again. Common causes: "
             "using openai<1.0 API syntax (openai.ChatCompletion.create does not exist "
             "— use the v1 client pattern shown in the prompt), wrong import names, "
-            "missing env variables, or incorrect file paths. Change your approach."
+            "missing env variables, incorrect file paths, or an invalid model slug "
+            "(NEVER guess model names — always use os.environ[\"OPENROUTER_MODEL\"] "
+            "as shown in the canonical pattern). Change your approach."
         )
         messages.append({"role": "user", "content": reminder})
         self.log.warning(
