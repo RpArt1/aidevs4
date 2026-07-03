@@ -24,6 +24,7 @@ The output schema mirrors ``super_agent/prompts/planner.md`` and PLAN_SCHEMA
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from time import time
 from typing import Any
@@ -39,6 +40,7 @@ from common.events import (
 )
 
 from .agent_base import SuperAgentBase
+from .agent_helper import ResourcePreFetcher
 from .plan_schema import PLAN_SCHEMA
 
 # Hardcoded example values for fields where the description-as-placeholder
@@ -253,8 +255,15 @@ class PlannerAgent(SuperAgentBase):
     # ── Prompt assembly ─────────────────────────────────────────────────────
 
     def _build_user_message(self) -> str:
-        """Compose the user turn: task text + run-level hints + optional critique."""
+        """Compose the user turn: task text + resource previews + run-level hints + optional critique."""
         parts = ["# Task (plain text, as given to the human)", "", self.task_text.strip()]
+
+        previews = ResourcePreFetcher(log=self.log).fetch_previews(
+            task_text=self.task_text,
+            env_vars={k: os.environ.get(k, "") for k in ("AIDEVS_API_KEY",)},
+        )
+        if previews:
+            parts += ["", previews]
 
         hints: list[str] = []
         if self.public_webhook_url:
