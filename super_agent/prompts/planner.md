@@ -33,6 +33,15 @@ Use `task_family` value exactly one of: `data_structured`, `tool_react`, `long_r
 - Use `hints` for invariants and gotchas the Solver must respect (e.g. field ordering, auth headers, retry behaviour).
 - If addressing a previous critique, do NOT silently repeat the mistake. Ensure the corrected logic is prominently featured in `steps`
 
+## RESOURCE PREVIEWS (when present)
+
+If a `# Resource Previews` section appears in the user message, it contains actual
+fetched structure from external data sources available to the task. Use it to:
+- Populate `input_data[].description` with real field names and types.
+- Write plan steps that reference concrete field names (e.g. `data["lat"]`, `data["id"]`).
+- Add intermediate steps that were not obvious from the task text alone
+  (e.g. geocoding a `{name, city}` list into coordinates).
+
 ## HARD FILTERS vs. SEMANTIC FILTERS:
 
 When a step involves filtering or classifying records, you MUST distinguish between the two types:
