@@ -23,6 +23,9 @@ RUN apt-get update \
         tini \
         ca-certificates \
         curl \
+        wget \
+        openssh-client \
+        unzip \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

@@ -292,8 +292,6 @@ class OrchestratorAgent(SuperAgentBase):
     def _build_initial_user_message(self) -> str:
         parts = ["# Task (plain text, as given to the human)", "", self.task_text.strip()]
         env_hints: list[str] = []
-        if self.public_webhook_url:
-            env_hints.append(f"PUBLIC_WEBHOOK_URL={self.public_webhook_url}")
         if self.verify_task_name_override:
             env_hints.append(f"verify_task_name (override)={self.verify_task_name_override}")
         if env_hints:
