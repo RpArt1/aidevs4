@@ -240,9 +240,12 @@ class SuperAgentBase(ABC):
         Returns:
             Tuple of ``(result_str, success_flag)``. On exception the result
             is a ``{"error": "..."}`` JSON payload and ``success=False``.
+            success is also False when the tool returns an error payload
+            (``{"error": ...}``) or a non-zero ``returncode``.
         """
         try:
-            return execute_tool(name, args), True
+            result = execute_tool(name, args)
+            return result, self._is_result_success(result)
         except Exception as exc:
             self.events.agent_error(
                 error_type="tool_dispatch",
@@ -251,6 +254,30 @@ class SuperAgentBase(ABC):
                 tool_name=name,
             )
             return json.dumps({"error": str(exc)}), False
+
+    @staticmethod
+    def _is_result_success(result: str) -> bool:
+        """Return False when the tool result signals a semantic failure.
+
+        Covers two cases:
+        - ``{"error": "..."}`` — tool-level error (e.g. timeout, unknown tool)
+        - ``{"returncode": N}`` where N != 0 — script exited with an error code
+        Any other shape (including un-parseable JSON) is treated as success so
+        that legitimate non-dict tool results (e.g. plain strings) are not
+        misclassified.
+        """
+        try:
+            parsed = json.loads(result)
+        except (json.JSONDecodeError, TypeError):
+            return True
+        if not isinstance(parsed, dict):
+            return True
+        if "error" in parsed:
+            return False
+        returncode = parsed.get("returncode")
+        if isinstance(returncode, int) and returncode != 0:
+            return False
+        return True
 
     @staticmethod
     def _format_tool_intent(name: str, args: dict) -> str:
