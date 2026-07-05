@@ -266,11 +266,6 @@ class PlannerAgent(SuperAgentBase):
             parts += ["", previews]
 
         hints: list[str] = []
-        if self.public_webhook_url:
-            hints.append(
-                f"PUBLIC_WEBHOOK_URL is available at runtime: {self.public_webhook_url} "
-                "(treat as a strong signal for long_running_webhook tasks).",
-            )
         if self.verify_task_name_override:
             hints.append(
                 f"Use verify_task_name='{self.verify_task_name_override}' "

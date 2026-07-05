@@ -31,12 +31,10 @@ import requests
 
 - Python 3.11 in a Linux sandbox (no network restrictions, but no extra packages can be installed)
 - Each `execute_python` call runs as a **fresh subprocess**. Variables, imports, and in-memory state from previous calls DO NOT survive. If you need to reuse data, write it to `${WORKSPACE}/<file>` and reload it.
-- Environment variables available: `AIDEVS_API_KEY`, `AIDEVS_VERIFY_URL`, `OPENROUTER_API_KEY`, `OPENROUTER_MODEL` (the pre-validated OpenRouter model slug to use in all LLM calls), `PUBLIC_WEBHOOK_URL` (when needed), `WORKSPACE`
+- Environment variables available: `AIDEVS_API_KEY`, `AIDEVS_VERIFY_URL`, `OPENROUTER_API_KEY`, `OPENROUTER_MODEL` (the pre-validated OpenRouter model slug to use in all LLM calls), `WORKSPACE`
 - The `WORKSPACE` env var points to the per-run working directory — use it to save/load intermediate files
-- DO NOT call `pip install`. The package set is fixed.
-- Available packages (already installed):
-#  - `openai>=1.0` (v1 client API only — `openai.ChatCompletion.create` and `openai.Completion.create` DO NOT EXIST in this version)
-  - requests, httpx, pydantic, python-dotenv, fastapi, uvicorn, pillow, numpy, pandas, beautifulsoup4
+- Available packages (already installed): `openai>=1.0` (v1 client API only), `requests`, `httpx`, `pydantic`, `python-dotenv`, `fastapi`, `uvicorn`, `pillow`, `numpy`, `pandas`, `beautifulsoup4`
+- Background processes started with `subprocess.Popen(..., start_new_session=True)` survive after the script exits — use this for servers or tunnels that must persist across `execute_python` calls. Write the PID to `$WORKSPACE/<name>.pid`.
 
 ## Calling an LLM (canonical pattern)
 - NEVER write `openai.ChatCompletion.create(...)`.

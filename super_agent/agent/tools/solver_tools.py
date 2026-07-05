@@ -13,8 +13,6 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable
-import debugpy
-
 
 from common.assignment_service import AssignmentService
 from common.logger import get_logger
@@ -242,22 +240,17 @@ def _log_script_done(
         len(stdout),
         len(stderr),
     )
-    if returncode == 0:
-        return
-    err_line = next((line for line in stderr.strip().splitlines() if line.strip()), "")
-    if err_line:
+    if returncode != 0 and stderr.strip():
         solver.log.warning(
-            "script.stderr  step=%d  script=%s  %s",
+            "script.stderr  step=%d  script=%s  returncode=%d\n%s",
             step,
             script_name,
-            err_line[:300],
+            returncode,
+            stderr[-2000:],
         )
 
 
 def _submit_answer(solver: "SolverAgent", args: dict) -> str:
-    log.info(f"\n\n..... Submitting answer .........\n\n")
-    # debugpy.listen(("0.0.0.0", 5678))
-    # debugpy.wait_for_client()
     task = str(args.get("task") or "")
     answer = args.get("answer")
 

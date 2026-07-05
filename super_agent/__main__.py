@@ -76,11 +76,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Inline task text. Multiple words are joined with spaces.",
     )
     parser.add_argument(
-        "--public-webhook-url",
-        default=os.getenv("PUBLIC_WEBHOOK_URL"),
-        help="Externally reachable webhook URL for long-running webhook tasks.",
-    )
-    parser.add_argument(
         "--verify-task-name",
         dest="verify_task_name_override",
         help="Optional human-provided override for AssignmentService task slug.",
@@ -229,7 +224,6 @@ def run_super_agent(args: argparse.Namespace, task_text: str) -> dict:
             llm=base_llm,
             planner_llm=planner_llm,
             solver_llm=solver_llm,
-            public_webhook_url=args.public_webhook_url,
             verify_task_name_override=args.verify_task_name_override,
             session_id=args.session_id,
             mock_solver=args.mock_solver,
