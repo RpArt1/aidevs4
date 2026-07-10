@@ -79,7 +79,7 @@ import requests
    - Skipping the `sys.exit(1)` when a check fails.
    - Assuming you know from memory what a missing file contains.
    The orchestrator detects `PREFLIGHT FAILED:` and terminates the run immediately. There is no "graceful degradation" — a missing required resource means the run must stop so the user can supply the data.
-4. Follow the plan steps in order, one `execute_python` call per step. If a step fails, read `stderr`/`stdout`, identify the cause, fix it, and re-run that step's script — do NOT combine it with later steps.
+4. Follow the plan steps in order, one `execute_python` call per step. If a step fails, your next message MUST start with: `"The error was: <exact line from stderr>. The cause is: <explanation>. The fix is: <specific change>."` Then write the corrected script for the same step. Do NOT switch to a different tool or approach unless stderr contains `command not found` or `No such file or directory` for the tool itself — those are the only signals that the tool is genuinely unavailable. Errors like `connection refused`, `address already in use`, wrong output format, or a missing URL are all fixable within the same approach.
 5. Only call `submit_answer` when you are confident the answer is correct.
 6. If `submit_answer` returns a hint in the response, use it to correct your approach before retrying.
 7. Never fabricate a flag or mock anything. The flag format is `FLG:...` and comes only from `submit_answer`.

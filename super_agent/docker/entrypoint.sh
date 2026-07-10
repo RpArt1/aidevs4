@@ -12,6 +12,19 @@
 
 set -euo pipefail
 
+# SSH (used by tunnel tools like pinggy) requires the current UID to have an
+# entry in /etc/passwd. When the container is launched with --user <host-uid>
+# that UID usually has no entry, causing "No user exists for uid N".
+# Fix: use libnss-wrapper to inject a temporary passwd entry at runtime.
+if ! getent passwd "$(id -u)" > /dev/null 2>&1; then
+    _tmp_passwd=$(mktemp)
+    cp /etc/passwd "$_tmp_passwd"
+    echo "user:x:$(id -u):$(id -g):User:/tmp:/bin/bash" >> "$_tmp_passwd"
+    export NSS_WRAPPER_PASSWD="$_tmp_passwd"
+    export NSS_WRAPPER_GROUP=/etc/group
+    export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libnss_wrapper.so
+fi
+
 # Respect LOG_LEVEL env var (forwarded from run.sh); default to INFO.
 LOG_LEVEL="${LOG_LEVEL:-INFO}"
 

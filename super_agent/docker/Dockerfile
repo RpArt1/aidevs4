@@ -18,6 +18,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # Minimal OS deps. `tini` gives us a real PID 1 that reaps zombies and
 # forwards signals to the entrypoint script (important because the solver
 # spawns long-running children via process_manager).
+# `iproute2`      — provides `ss` for port inspection (lsof/netstat not available).
+# `libnss-wrapper`— lets the entrypoint inject a fake /etc/passwd entry so SSH
+#                   works when the container runs as an arbitrary host UID.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         tini \
@@ -26,6 +29,8 @@ RUN apt-get update \
         wget \
         openssh-client \
         unzip \
+        iproute2 \
+        libnss-wrapper \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
