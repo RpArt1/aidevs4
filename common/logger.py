@@ -8,6 +8,17 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
+TRACE = 5
+logging.addLevelName(TRACE, "TRACE")
+
+
+def _trace(self: logging.Logger, msg: object, *args: object, **kwargs: object) -> None:
+    if self.isEnabledFor(TRACE):
+        self._log(TRACE, msg, args, **kwargs)
+
+
+logging.Logger.trace = _trace  # type: ignore[attr-defined]
+
 DEFAULT_LOG_DIR = Path(__file__).resolve().parent.parent / "logs"
 LOG_DIR = DEFAULT_LOG_DIR
 LOG_FILE = LOG_DIR / "app.log"
@@ -105,7 +116,10 @@ def setup_logging(level: int = logging.INFO) -> None:
     file_handler = logging.FileHandler(_resolve_log_file(), encoding="utf-8")
     file_handler.setFormatter(fmt)
     root.addHandler(file_handler)
-    for name in ("httpx", "httpcore"):
+    # Pin noisy third-party libraries to WARNING regardless of the app log level.
+    # This keeps DEBUG output limited to application code only.
+    _THIRD_PARTY_NOISY = ("httpx", "httpcore", "openai", "urllib3", "requests")
+    for name in _THIRD_PARTY_NOISY:
         logging.getLogger(name).setLevel(logging.WARNING)
     _install_global_error_hooks()
 

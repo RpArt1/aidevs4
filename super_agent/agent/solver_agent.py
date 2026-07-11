@@ -96,6 +96,8 @@ class SolverAgent(SuperAgentBase):
 
     # ── ReAct loop ──────────────────────────────────────────────────────────
 
+    _STEP_DIVIDER = "─ " * 72
+
     def _loop(
         self,
         messages: list[dict[str, Any]],
@@ -105,6 +107,7 @@ class SolverAgent(SuperAgentBase):
         for step in range(1, self.budget.max_iterations + 1):
             self._last_step = step
             self.budget.raise_if_exceeded(step)
+            self.log.info(self._STEP_DIVIDER)
             self.log.info(
                 "solver step=%d/%d scripts_written=%d",
                 step, self.budget.max_iterations, self._script_counter,
@@ -139,8 +142,10 @@ class SolverAgent(SuperAgentBase):
         return None
 
     def _chat(self, messages: list[dict[str, Any]], tools: list[dict], step: int):
+        self._log_outgoing_prompt(messages, step)
         t0 = time()
         message = self.llm.chat_with_tools(messages=messages, tools=tools)
+        duration_ms = (time() - t0) * 1000
         self._emitter.emit(GenerationCompleted(
             type="generation.completed",
             ctx=self.ctx,
@@ -149,10 +154,47 @@ class SolverAgent(SuperAgentBase):
             input=messages,
             input_tokens=self.llm.last_usage.input_tokens,
             output_tokens=self.llm.last_usage.output_tokens,
-            duration_ms=(time() - t0) * 1000,
+            duration_ms=duration_ms,
             step=step,
         ))
+        self._log_generation_summary(message, step, duration_ms)
         return message
+
+    def _log_outgoing_prompt(self, messages: list[dict[str, Any]], step: int) -> None:
+        """Log the last user/tool message at DEBUG — visible only with --log-level debug."""
+        if not self.log.isEnabledFor(10):  # logging.DEBUG == 10
+            return
+        last = next(
+            (m for m in reversed(messages) if m.get("role") in ("user", "tool")),
+            None,
+        )
+        if last is None:
+            return
+        content = last.get("content") or ""
+        if not isinstance(content, str):
+            content = str(content)
+        self.log.debug(
+            "llm.prompt  step=%d  role=%s  chars=%d\n%s",
+            step, last.get("role"), len(content), content,
+        )
+
+    def _log_generation_summary(self, message: Any, step: int, duration_ms: float) -> None:
+        """Emit token/latency summary at INFO and optional reasoning text at DEBUG."""
+        tool_names = (
+            [tc.function.name for tc in message.tool_calls]
+            if message.tool_calls
+            else []
+        )
+        self.log.info(
+            "llm.done  step=%d  tokens_in=%d  tokens_out=%d  duration_ms=%.0f  tools=%s",
+            step,
+            self.llm.last_usage.input_tokens,
+            self.llm.last_usage.output_tokens,
+            duration_ms,
+            tool_names or "none",
+        )
+        if message.content and self.log.isEnabledFor(10):  # DEBUG
+            self.log.debug("llm.response  step=%d\n%s", step, message.content)
 
     # ── Terminal state handlers ─────────────────────────────────────────────
 

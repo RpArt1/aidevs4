@@ -73,7 +73,7 @@ class LLMService:
             **kwargs,
         )
         self._track_usage(response)
-        log.debug(f"[LLMService] model={self.model} | last_usage=({self.last_usage}) | total_usage=({self.total_usage})")
+        log.trace(f"[LLMService] model={self.model} | last_usage=({self.last_usage}) | total_usage=({self.total_usage})")
         return response.choices[0].message.content
 
     def chat_with_tools(
@@ -94,7 +94,7 @@ class LLMService:
             **kwargs,
         )
         self._track_usage(response)
-        log.debug(
+        log.trace(
             f"[LLMService] model={self.model} | "
             f"last_usage=({self.last_usage}) | total_usage=({self.total_usage})"
         )
@@ -127,5 +127,5 @@ class LLMService:
             **kwargs,
         )
         self._track_usage(response)
-        log.debug(f"[LLMService] model={self.model} | last_usage=({self.last_usage}) | total_usage=({self.total_usage})")
+        log.trace(f"[LLMService] model={self.model} | last_usage=({self.last_usage}) | total_usage=({self.total_usage})")
         return json.loads(response.choices[0].message.content)

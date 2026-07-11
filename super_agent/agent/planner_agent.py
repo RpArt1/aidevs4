@@ -129,7 +129,7 @@ class PlannerAgent(SuperAgentBase):
             schema_example,
         )
         result = raw.replace("{SCHEMA_EXAMPLE}", schema_example)
-        self.log.debug(
+        self.log.trace(
             "[planner] system prompt after {SCHEMA_EXAMPLE} injection (len=%d):\n%s",
             len(result),
             result,
@@ -218,7 +218,7 @@ class PlannerAgent(SuperAgentBase):
         user_message = self._build_user_message()
         messages = [{"role": "user", "content": user_message}]
 
-        self.log.debug(
+        self.log.trace(
             "[planner] → LLM  system_prompt(len=%d)  user_message(len=%d)",
             len(system_prompt),
             len(user_message),
@@ -233,7 +233,7 @@ class PlannerAgent(SuperAgentBase):
             schema=PLAN_SCHEMA,
             system_prompt=system_prompt,
         )
-        self.log.debug(
+        self.log.trace(
             "[planner] ← LLM  expected_output=%r",
             plan.get("expected_output"),
         )
@@ -289,7 +289,7 @@ class PlannerAgent(SuperAgentBase):
             "Produce the plan JSON now, conforming exactly to the schema.",
         ]
         user_message = "\n".join(parts)
-        self.log.debug(
+        self.log.trace(
             "[planner] user message (len=%d):\n%s",
             len(user_message),
             user_message,
