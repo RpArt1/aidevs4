@@ -189,7 +189,7 @@ class SuperAgentBase(ABC):
         name = tc.function.name
         args = self._parse_tool_args(tc, step)
 
-        self.log.info("tool.intent  step=%d  tool=%s  %s", step, name, self._format_tool_intent(name, args))
+        self.log.info("Tool called, tool.intent=%s  |step=%d  |tool=%s  ", self._format_tool_intent(name, args), step, name )
         self.events.tool_started(call_id=tc.id, tool_name=name, arguments=args, step=step)
         t0 = time()
         result, success = self._safe_execute(execute_tool, name, args, step)

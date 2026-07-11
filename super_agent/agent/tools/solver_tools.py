@@ -8,10 +8,15 @@ from __future__ import annotations
 
 import json
 import os
+import queue
 import re
 import subprocess
 import sys
+import threading
+from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
+from time import time
 from typing import TYPE_CHECKING, Any, Callable
 
 from common.assignment_service import AssignmentService
@@ -106,6 +111,94 @@ def make_solver_dispatcher(solver: "SolverAgent") -> ToolDispatcher:
     return dispatch
 
 
+@dataclass
+class CapturedLine:
+    """One line of output captured in real time from a running subprocess."""
+    timestamp: datetime
+    stream: str   # "stdout" | "stderr"
+    text: str
+
+
+def _run_interleaved(
+    script_path: Path,
+    timeout: int,
+    env: dict[str, str],
+) -> tuple[int | None, list[CapturedLine], str | None]:
+    """Run a script and capture stdout/stderr as chronologically ordered lines.
+
+    Uses Popen with two reader threads so lines from both streams are
+    timestamped at arrival and interleaved in the order they were produced.
+
+    Args:
+        script_path: Python script to execute.
+        timeout: Wall-clock seconds before the process is killed.
+        env: Full environment for the subprocess.
+
+    Returns:
+        (returncode, lines, error_message).
+        returncode is None on timeout; error_message describes the failure.
+    """
+    captured: list[CapturedLine] = []
+    line_queue: queue.Queue[CapturedLine | None] = queue.Queue()
+
+    proc = subprocess.Popen(
+        [sys.executable, str(script_path)],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        env=env,
+        bufsize=1,
+    )
+
+    def _reader(stream: Any, name: str) -> None:
+        try:
+            for raw in stream:
+                line_queue.put(CapturedLine(datetime.now(), name, raw.rstrip()))
+        finally:
+            line_queue.put(None)
+
+    threads = [
+        threading.Thread(target=_reader, args=(proc.stdout, "stdout"), daemon=True),
+        threading.Thread(target=_reader, args=(proc.stderr, "stderr"), daemon=True),
+    ]
+    for t in threads:
+        t.start()
+
+    done = 0
+    deadline = time() + timeout
+
+    while done < 2:
+        remaining = deadline - time()
+        if remaining <= 0:
+            proc.kill()
+            # Drain whatever the readers still have so the threads can exit
+            while done < 2:
+                try:
+                    item = line_queue.get(timeout=0.5)
+                    if item is None:
+                        done += 1
+                    else:
+                        captured.append(item)
+                except queue.Empty:
+                    break
+            for t in threads:
+                t.join(timeout=1.0)
+            return None, captured, f"script timed out after {timeout}s"
+        try:
+            item = line_queue.get(timeout=min(remaining, 0.2))
+            if item is None:
+                done += 1
+            else:
+                captured.append(item)
+        except queue.Empty:
+            pass
+
+    for t in threads:
+        t.join(timeout=1.0)
+    proc.wait()
+    return proc.returncode, captured, None
+
+
 def _execute_python(solver: "SolverAgent", args: dict) -> str:
     code = str(args.get("code") or "")
     timeout = min(int(args.get("timeout") or 60), 120)
@@ -118,47 +211,34 @@ def _execute_python(solver: "SolverAgent", args: dict) -> str:
 
     solver.log.info(
         "script.start  step=%d  script=%s  timeout=%ds  lines=%d",
-        step,
-        script_name,
-        timeout,
-        code.count("\n") + 1,
+        step, script_name, timeout, code.count("\n") + 1,
     )
 
     log_path = script_path.with_suffix(".log")
+    env = {**os.environ, "WORKSPACE": str(solver.workspace)}
+    returncode, captured_lines, timeout_error = _run_interleaved(script_path, timeout, env)
 
-    try:
-        proc = subprocess.run(
-            [sys.executable, str(script_path)],
-            capture_output=True,
-            timeout=timeout,
-            text=True,
-            env={**os.environ, "WORKSPACE": str(solver.workspace)},
-        )
-        stdout = proc.stdout
-        if len(stdout) > 8000:
-            stdout = stdout[-8000:]
-        stderr = proc.stderr
-        if len(stderr) > 4000:
-            stderr = stderr[-4000:]
-        solver.record_execution_stderr(stderr)
-        _log_script_done(solver, step, script_name, proc.returncode, stdout, stderr)
-        _write_script_log(log_path, stdout=stdout, stderr=stderr, returncode=proc.returncode)
+    stdout = "\n".join(l.text for l in captured_lines if l.stream == "stdout")
+    stderr = "\n".join(l.text for l in captured_lines if l.stream == "stderr")
 
-        preflight_result = _check_preflight_sentinel(solver, stdout)
-        if preflight_result is not None:
-            return preflight_result
-
-        return json.dumps({"stdout": stdout, "stderr": stderr, "returncode": proc.returncode})
-    except subprocess.TimeoutExpired:
+    if timeout_error is not None:
         solver.record_execution_stderr("")
         solver.log.warning(
-            "script.done   step=%d  script=%s  timed_out after=%ds",
-            step,
-            script_name,
-            timeout,
+            "script.timeout  step=%d  script=%s  after=%ds",
+            step, script_name, timeout,
         )
-        _write_script_log(log_path, error=f"script timed out after {timeout}s")
-        return json.dumps({"error": f"script timed out after {timeout}s"})
+        _write_script_log(log_path, captured_lines=captured_lines, error=timeout_error)
+        return json.dumps({"error": timeout_error})
+
+    solver.record_execution_stderr(stderr)
+    _log_script_done(solver, step, script_name, returncode, stdout, stderr, log_path.name)
+    _write_script_log(log_path, captured_lines=captured_lines, returncode=returncode)
+
+    preflight_result = _check_preflight_sentinel(solver, stdout)
+    if preflight_result is not None:
+        return preflight_result
+
+    return json.dumps({"stdout": stdout, "stderr": stderr, "returncode": returncode})
 
 
 def _check_preflight_sentinel(solver: "SolverAgent", stdout: str) -> str | None:
@@ -193,34 +273,49 @@ def _check_preflight_sentinel(solver: "SolverAgent", stdout: str) -> str | None:
     return None
 
 
+_LOG_INLINE_LINES = 30   # max lines shown inline in app.log; full output always in .log
+
+
+def _inline(text: str, log_name: str) -> str:
+    """Return first N lines of text with an overflow note pointing to the .log file."""
+    lines = text.splitlines()
+    if len(lines) <= _LOG_INLINE_LINES:
+        return text
+    head = "\n".join(lines[:_LOG_INLINE_LINES])
+    return f"{head}\n… (+{len(lines) - _LOG_INLINE_LINES} lines — see {log_name})"
+
+
 def _write_script_log(
     log_path: Path,
     *,
-    stdout: str = "",
-    stderr: str = "",
+    captured_lines: list[CapturedLine],
     returncode: int | None = None,
     error: str | None = None,
 ) -> None:
-    """Write a human-readable .log file next to the executed script.
+    """Write a chronological, timestamped .log file next to the executed script.
+
+    All output lines appear in the order they were produced. The exit status
+    is appended at the bottom — that is when it becomes known.
 
     Args:
         log_path: Destination path for the log file (e.g. script_0.log).
-        stdout: Captured standard output of the script.
-        stderr: Captured standard error of the script.
-        returncode: Process exit code, or None when execution never finished.
-        error: High-level error message (e.g. timeout) when no returncode is available.
+        captured_lines: Interleaved lines from _run_interleaved().
+        returncode: Process exit code (None on timeout).
+        error: Error message when execution was cut short (e.g. timeout).
     """
-    lines: list[str] = []
+    rows: list[str] = []
 
-    if error is not None:
-        lines += [f"ERROR: {error}", ""]
+    if not captured_lines:
+        rows.append("(no output)")
     else:
-        lines += [f"returncode: {returncode}", ""]
+        for cl in captured_lines:
+            ts = cl.timestamp.strftime("%H:%M:%S.%f")[:-3]  # HH:MM:SS.mmm
+            rows.append(f"[{ts}] [{cl.stream:6}] {cl.text}")
 
-    lines += ["=== STDOUT ===", stdout or "(empty)", ""]
-    lines += ["=== STDERR ===", stderr or "(empty)", ""]
+    rows.append("")
+    rows.append(f"ERROR: {error}" if error is not None else f"returncode: {returncode}")
 
-    log_path.write_text("\n".join(lines), encoding="utf-8")
+    log_path.write_text("\n".join(rows) + "\n", encoding="utf-8")
 
 
 def _log_script_done(
@@ -230,23 +325,31 @@ def _log_script_done(
     returncode: int,
     stdout: str,
     stderr: str,
+    log_name: str,
 ) -> None:
-    """Emit completion logs so script runs are easy to correlate in app.log."""
+    """Emit script completion to app.log.
+
+    stdout is always surfaced (it is the script's intentional signal output).
+    stderr is surfaced only on failure — on success it is library noise
+    and its full content is preserved in the .log file.
+    """
     solver.log.info(
         "script.done   step=%d  script=%s  returncode=%d  stdout_bytes=%d  stderr_bytes=%d",
-        step,
-        script_name,
-        returncode,
-        len(stdout),
-        len(stderr),
+        step, script_name, returncode, len(stdout), len(stderr),
     )
+
+    if stdout.strip():
+        solver.log.info(
+            "script.stdout  step=%d  script=%s\n%s",
+            step, script_name, _inline(stdout, log_name),
+        )
+    else:
+        solver.log.info("script.stdout  step=%d  script=%s  (empty)", step, script_name)
+
     if returncode != 0 and stderr.strip():
         solver.log.warning(
             "script.stderr  step=%d  script=%s  returncode=%d\n%s",
-            step,
-            script_name,
-            returncode,
-            stderr[-2000:],
+            step, script_name, returncode, _inline(stderr, log_name),
         )
 
 

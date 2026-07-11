@@ -27,12 +27,12 @@ def subscribe_event_logger(emitter: AgentEventEmitter) -> None:
                 logger.warning("[agent] agent.iteration_limit   step=%s/%s", event.step, event.max_iterations)
             case "generation.completed":
                 out = event.output or ""
-                logger.debug(
+                logger.trace(
                     "[gen]   generation.completed   step=%s   tokens=%s+%s   output=%r",
                     event.step, event.input_tokens, event.output_tokens, out,
                 )
             case "tool.started":
-                logger.debug("[tool]  tool.started   step=%s   tool=%s   call_id=%s", event.step, event.tool_name, event.call_id)
+                logger.trace("[tool]  tool.started   step=%s   tool=%s   call_id=%s", event.step, event.tool_name, event.call_id)
             case "tool.completed":
                 status = "ok" if event.success else "FAIL"
                 logger.info("[tool]  tool.completed   step=%s   tool=%s   status=%s   duration_ms=%.0f", event.step, event.tool_name, status, event.duration_ms)
